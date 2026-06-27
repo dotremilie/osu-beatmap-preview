@@ -1,7 +1,7 @@
 import {Circle} from "osu-standard-stable";
 import {Color4} from "osu-classes";
-import {DrawableStandardHitObject} from "./DrawableStandardHitObject.ts";
-import {DrawableApproachCircle} from "./DrawableApproachCircle.ts";
+import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
+import {DrawableApproachCircle} from "./DrawableApproachCircle";
 
 export class DrawableCircle extends DrawableStandardHitObject<Circle> {
     color: Color4;

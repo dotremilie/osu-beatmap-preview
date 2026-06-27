@@ -5,19 +5,18 @@
     "module": "ESNext",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "node",
-    "allowImportingTsExtensions": true,
+    "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
-
-    /* Linting */
     "strict": true,
-    "noFallthroughCasesInSwitch": true,
-    "jsx": "react",
-    "allowSyntheticDefaultImports": true
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": [
+    "src/index.ts",
+    "src/previewers/**/*.ts",
+    "src/renderers/**/*.ts",
+    "src/drawables/**/*.ts",
+    "src/utils/**/*.ts"
+  ]
 }

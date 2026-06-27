@@ -1,6 +1,6 @@
-import MathUtils from "../../utils/MathUtils.ts";
-import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer.ts";
-import {DrawableSlider} from "./DrawableSlider.ts";
+import MathUtils from "../../utils/MathUtils";
+import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer";
+import {DrawableSlider} from "./DrawableSlider";
 
 export class DrawableSliderBall {
     FOLLOW_CIRCLE_FACTOR = 2;

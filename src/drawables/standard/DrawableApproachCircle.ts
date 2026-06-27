@@ -1,4 +1,4 @@
-import {DrawableCircle} from "./DrawableCircle.ts";
+import {DrawableCircle} from "./DrawableCircle";
 
 export class DrawableApproachCircle {
     APPROACH_CIRCLE_WIDTH = 0.09;

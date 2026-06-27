@@ -1,87 +1,127 @@
 import {HitObject, Ruleset, RulesetBeatmap} from "osu-classes";
-import Renderer from "../renderers/Renderer.ts";
-import DrawableHitObject from "../drawables/DrawableHitObject.ts";
 import {BeatmapDecoder} from "osu-parsers";
+import DrawableHitObject from "../drawables/DrawableHitObject";
+import Renderer from "../renderers/Renderer";
 
-export const PREVIEW_TIME_FROM_BEATMAP = false;
+export interface PlayfieldOffset {
+    x: number;
+    y: number;
+}
 
-export default abstract class BeatmapPreviewer<TBeatmap extends RulesetBeatmap, TRenderer extends Renderer<TBeatmap, DrawableHitObject<HitObject>>> {
+export interface BeatmapPreviewOptions {
+    width?: number;
+    height?: number;
+    devicePixelRatio?: number;
+    playfieldOffset?: PlayfieldOffset;
+    useBeatmapPreviewTime?: boolean;
+}
+
+export interface LoadBeatmapOptions {
+    mods?: number;
+    useBeatmapPreviewTime?: boolean;
+}
+
+const DEFAULT_WIDTH = 640;
+const DEFAULT_HEIGHT = 480;
+const DEFAULT_PLAYFIELD_OFFSET: PlayfieldOffset = {x: 64, y: 48};
+
+export default abstract class BeatmapPreviewer<
+    TBeatmap extends RulesetBeatmap,
+    TRenderer extends Renderer<TBeatmap, DrawableHitObject<HitObject>>
+> {
     protected readonly canvas: HTMLCanvasElement;
     protected readonly ctx: CanvasRenderingContext2D;
 
-    private decoder: BeatmapDecoder;
-    private renderer!: TRenderer;
+    private readonly decoder = new BeatmapDecoder();
+    private readonly ruleset: Ruleset;
+    private readonly createRenderer: (ctx: CanvasRenderingContext2D, beatmap: TBeatmap) => TRenderer;
+    private readonly playfieldOffset: PlayfieldOffset;
+    private readonly useBeatmapPreviewTime: boolean;
 
-    private startTime: number = 0;
-    private previewTime: number = 0;
+    private renderer?: TRenderer;
+    private previewTime = 0;
+    private width = DEFAULT_WIDTH;
+    private height = DEFAULT_HEIGHT;
+    private devicePixelRatio = 1;
 
     protected constructor(
-        private id: string,
-        private ruleset: Ruleset,
-        private createRenderer: (ctx: CanvasRenderingContext2D, beatmap: TBeatmap) => TRenderer
+        canvas: HTMLCanvasElement,
+        ruleset: Ruleset,
+        createRenderer: (ctx: CanvasRenderingContext2D, beatmap: TBeatmap) => TRenderer,
+        options: BeatmapPreviewOptions = {},
     ) {
-        this.canvas = document.querySelector(`#${id}`) as HTMLCanvasElement;
+        const ctx = canvas.getContext("2d");
 
-        if (!this.canvas) {
-            this.canvas = document.createElement("canvas") as HTMLCanvasElement;
-            this.canvas.setAttribute("id", this.id);
-            document.body.appendChild(this.canvas);
-        }
-
-        if (!(this.canvas instanceof HTMLCanvasElement)) {
-            throw new Error("Queried element is not a HTMLCanvasElement");
-        }
-
-        const ctx = this.canvas.getContext("2d");
         if (!ctx) {
-            throw new Error("Canvas not supported");
+            throw new Error("Canvas 2D rendering is not supported");
         }
 
+        this.canvas = canvas;
         this.ctx = ctx;
-        this.canvas.width = 640;
-        this.canvas.height = 480;
-        this.ctx.scale(1, 1);
+        this.ruleset = ruleset;
+        this.createRenderer = createRenderer;
+        this.playfieldOffset = options.playfieldOffset ?? DEFAULT_PLAYFIELD_OFFSET;
+        this.useBeatmapPreviewTime = options.useBeatmapPreviewTime ?? false;
 
-        this.startTime = performance.now();
-        this.decoder = new BeatmapDecoder();
+        this.resize(
+            options.width ?? DEFAULT_WIDTH,
+            options.height ?? DEFAULT_HEIGHT,
+            options.devicePixelRatio,
+        );
     }
 
-    public get getBeatmap() {
-        return this.renderer?.getBeatmap;
+    public get beatmap(): Readonly<TBeatmap> | null {
+        return this.renderer?.getBeatmap ?? null;
     }
 
-    public async loadBeatmapFromUrl(url: string, mods: number = 0) {
-        const response = await fetch(url, {mode: "no-cors"});
-        const data = await response.text();
+    public loadBeatmapText(osuText: string, options: LoadBeatmapOptions = {}): Readonly<TBeatmap> {
+        const rawBeatmap = this.decoder.decodeFromString(osuText);
+        return this.loadBeatmap(rawBeatmap as TBeatmap, options);
+    }
 
-        const rawBeatmap = this.decoder.decodeFromString(data);
-        const appliedMods = this.ruleset.createModCombination(mods);
-        const appliedBeatmap = this.ruleset.applyToBeatmapWithMods(rawBeatmap, appliedMods) as TBeatmap;
+    public loadBeatmap(beatmap: TBeatmap, options: LoadBeatmapOptions = {}): Readonly<TBeatmap> {
+        const mods = this.ruleset.createModCombination(options.mods ?? 0);
+        const appliedBeatmap = this.ruleset.applyToBeatmapWithMods(beatmap, mods) as TBeatmap;
 
         this.renderer = this.createRenderer(this.ctx, appliedBeatmap);
-        this.previewTime = PREVIEW_TIME_FROM_BEATMAP ? appliedBeatmap.general.previewTime : 0;
+        this.previewTime = (options.useBeatmapPreviewTime ?? this.useBeatmapPreviewTime)
+            ? appliedBeatmap.general.previewTime
+            : 0;
+
+        return appliedBeatmap;
     }
 
-    public async loadBeatmap(beatmap: TBeatmap, mods: number = 0) {
-        const appliedMods = this.ruleset.createModCombination(mods);
-        const appliedBeatmap = this.ruleset.applyToBeatmapWithMods(beatmap, appliedMods) as TBeatmap;
+    public render(timeMs: number): void {
+        if (!this.renderer) {
+            return;
+        }
 
-        this.renderer = this.createRenderer(this.ctx, appliedBeatmap);
-        this.previewTime = PREVIEW_TIME_FROM_BEATMAP ? appliedBeatmap.general.previewTime : 0;
-    }
-
-    public updateFrame(time: number) {
-        time = (time - this.startTime + this.previewTime);
-
-        this.clearScreen();
+        this.clear();
 
         this.ctx.save();
-        this.ctx.translate(64, 48);
-        this.renderer.render(time);
+        this.ctx.translate(this.playfieldOffset.x, this.playfieldOffset.y);
+        this.renderer.render(timeMs + this.previewTime);
         this.ctx.restore();
     }
 
-    private clearScreen() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    public resize(width: number, height: number, devicePixelRatio = globalThis.devicePixelRatio ?? 1): void {
+        this.width = width;
+        this.height = height;
+        this.devicePixelRatio = devicePixelRatio;
+
+        this.canvas.width = Math.round(width * devicePixelRatio);
+        this.canvas.height = Math.round(height * devicePixelRatio);
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+        this.ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+
+    public clear(): void {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+    }
+
+    public dispose(): void {
+        this.renderer = undefined;
+        this.clear();
     }
 }

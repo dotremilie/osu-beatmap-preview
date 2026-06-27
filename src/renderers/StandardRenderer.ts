@@ -1,10 +1,10 @@
 import {Circle, Slider, Spinner, StandardBeatmap, StandardHitObject} from "osu-standard-stable";
 import {Color4} from "osu-classes";
-import {DrawableSpinner} from "../drawables/standard/DrawableSpinner.ts";
-import {DrawableCircle} from "../drawables/standard/DrawableCircle.ts";
-import {DrawableSlider} from "../drawables/standard/DrawableSlider.ts";
-import RulesetRenderer from "./Renderer.ts";
-import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardHitObject.ts";
+import {DrawableSpinner} from "../drawables/standard/DrawableSpinner";
+import {DrawableCircle} from "../drawables/standard/DrawableCircle";
+import {DrawableSlider} from "../drawables/standard/DrawableSlider";
+import RulesetRenderer from "./Renderer";
+import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardHitObject";
 
 export const CIRCLE_BORDER_WIDTH = 0.15;
 
@@ -17,11 +17,11 @@ export default class StandardRenderer extends RulesetRenderer<StandardBeatmap, D
     ];
 
     protected initializeDrawableHitObjects(): void {
-        const {comboColors} = this.beatmap.colors;
-
-        if (comboColors.length === 0) {
+        if (this.beatmap.colors.comboColors.length === 0) {
             this.beatmap.colors.comboColors = this.DEFAULT_COLORS;
         }
+
+        const {comboColors} = this.beatmap.colors;
 
         this.beatmap.hitObjects.forEach((object) => {
             const color = comboColors[object.comboIndexWithOffsets % comboColors.length];
@@ -35,17 +35,10 @@ export default class StandardRenderer extends RulesetRenderer<StandardBeatmap, D
             }
         });
 
-        if (this.beatmap.mods.has(64)) {
-            this.time_multiplier = 1.5;
-        }
-
-        if (this.beatmap.mods.has(256)) {
-            this.time_multiplier = 0.75;
-        }
     }
 
     public render(time: number): void {
-        time = time / this.time_multiplier;
+        time = time * this.beatmap.difficulty.clockRate;
 
         const hitObjects = this.drawableHitObjects.filter(object => {
             if (time < object.hitObject.startTime - object.hitObject.timePreempt) return false;

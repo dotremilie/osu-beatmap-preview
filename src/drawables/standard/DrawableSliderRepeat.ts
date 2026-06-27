@@ -1,7 +1,7 @@
-import {DrawableStandardHitObject} from "./DrawableStandardHitObject.ts";
+import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {Slider, SliderRepeat} from "osu-standard-stable";
-import {DrawableSlider} from "./DrawableSlider.ts";
-import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer.ts";
+import {DrawableSlider} from "./DrawableSlider";
+import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer";
 
 export class DrawableSliderRepeat extends DrawableStandardHitObject<SliderRepeat> {
     get slider(): Slider {

@@ -1,7 +1,7 @@
 import {Slider} from "osu-standard-stable";
 import {Color4} from "osu-classes";
-import {DrawableStandardHitObject} from "./DrawableStandardHitObject.ts";
-import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer.ts";
+import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
+import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer";
 
 // TODO: Separate SliderPath into its own class
 export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {

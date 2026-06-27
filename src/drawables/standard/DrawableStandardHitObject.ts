@@ -1,5 +1,5 @@
 import {StandardHitObject} from "osu-standard-stable";
-import DrawableHitObject from "../DrawableHitObject.ts";
+import DrawableHitObject from "../DrawableHitObject";
 
 /**
  * Abstract class representing a drawable standard hit object.

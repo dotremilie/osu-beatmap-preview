@@ -1,6 +1,6 @@
 import {Spinner} from "osu-standard-stable";
-import MathUtils from "../../utils/MathUtils.ts";
-import {DrawableStandardHitObject} from "./DrawableStandardHitObject.ts";
+import MathUtils from "../../utils/MathUtils";
+import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 
 export class DrawableSpinner extends DrawableStandardHitObject<Spinner> {
     SPINNER_SIZE = 180;

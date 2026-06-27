@@ -1,9 +1,9 @@
-import {DrawableStandardHitObject} from "./DrawableStandardHitObject.ts";
+import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {Slider} from "osu-standard-stable";
 import {Color4} from "osu-classes";
-import {DrawableSliderBody} from "./DrawableSliderBody.ts";
-import {DrawableSliderHead} from "./DrawableSliderHead.ts";
-import {DrawableSliderBall} from "./DrawableSliderBall.ts";
+import {DrawableSliderBody} from "./DrawableSliderBody";
+import {DrawableSliderHead} from "./DrawableSliderHead";
+import {DrawableSliderBall} from "./DrawableSliderBall";
 
 export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     color: Color4;

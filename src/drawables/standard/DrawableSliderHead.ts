@@ -1,4 +1,4 @@
-import {DrawableCircle} from "./DrawableCircle.ts";
+import {DrawableCircle} from "./DrawableCircle";
 import {Color4} from "osu-classes";
 import {Slider} from "osu-standard-stable";
 
