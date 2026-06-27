@@ -1,6 +1,6 @@
 {
   "name": "osu-beatmap-preview",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canvas renderer for osu!standard beatmap previews.",
   "license": "MIT",
   "author": "dotremilie",
