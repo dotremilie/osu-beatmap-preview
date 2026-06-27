@@ -13,6 +13,7 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 - Multiple previews can be created at once without noticeable performance drawbacks.
 - Canvas-first API with no React, browser extension, or UI dependency.
 - osu!standard mod bitmasks can be passed when loading a beatmap.
+- Torus font assets are included for combo number rendering.
 
 ## Missing, Planned Features
 
@@ -27,6 +28,12 @@ npm install osu-beatmap-preview
 ```
 
 ## Usage
+
+Load the bundled Torus font CSS before rendering if you want combo numbers to match the default renderer:
+
+```ts
+import "osu-beatmap-preview/assets/fonts/torus.css";
+```
 
 ```ts
 import {StandardBeatmapPreview} from "osu-beatmap-preview";
