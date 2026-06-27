@@ -86,6 +86,39 @@ npm run build
 npm run typecheck
 ```
 
+## Releasing
+
+Releases are published to npm from GitHub Actions when a GitHub Release is published.
+
+1. Update the package version and create a matching Git tag:
+
+   ```bash
+   npm version patch -m "Release v%s"
+   ```
+
+   Use `minor`, `major`, or an explicit version when appropriate.
+
+2. Push the commit and tag:
+
+   ```bash
+   git push origin master --follow-tags
+   ```
+
+3. Create and publish the GitHub Release:
+
+   ```bash
+   gh release create v0.1.1 --generate-notes
+   ```
+
+The release tag must match `package.json` exactly, using the `v` prefix. For example, package version `0.1.1` must be released as `v0.1.1`.
+
+Before the first automated npm release, configure npm Trusted Publishing for this package:
+
+- Publisher: GitHub Actions.
+- Repository: `dotremilie/osu-beatmap-preview`.
+- Workflow filename: `publish.yml`.
+- Allowed action: `npm publish`.
+
 ## Acknowledgements
 
 - [osu!](https://osu.ppy.sh/)

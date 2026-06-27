@@ -4,6 +4,14 @@
   "description": "Canvas renderer for osu!standard beatmap previews.",
   "license": "MIT",
   "author": "dotremilie",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotremilie/osu-beatmap-preview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dotremilie/osu-beatmap-preview/issues"
+  },
+  "homepage": "https://github.com/dotremilie/osu-beatmap-preview#readme",
   "type": "module",
   "sideEffects": false,
   "module": "./dist/index.js",
@@ -21,6 +29,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\"",
     "typecheck": "tsc --noEmit",
