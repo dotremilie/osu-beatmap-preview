@@ -28,7 +28,15 @@ jobs:
 
       - name: Verify release tag matches package version
         run: |
-          node -e "const pkg = require('./package.json'); const expected = `v${pkg.version}`; const actual = process.env.GITHUB_REF_NAME; if (actual !== expected) { throw new Error(`Release tag ${actual} does not match package version ${expected}`); }"
+          node <<'NODE'
+          const pkg = require("./package.json");
+          const expected = `v${pkg.version}`;
+          const actual = process.env.GITHUB_REF_NAME;
+
+          if (actual !== expected) {
+            throw new Error(`Release tag ${actual} does not match package version ${expected}`);
+          }
+          NODE
 
       - name: Audit dependencies
         run: npm audit
