@@ -6,6 +6,10 @@ export class DrawableSpinner extends DrawableStandardHitObject<Spinner> {
     SPINNER_SIZE = 180;
     SPINNER_CENTER_SIZE = 10;
 
+    constructor(hitObject: Spinner, hidden = false) {
+        super(hitObject, hidden);
+    }
+
     draw(ctx: CanvasRenderingContext2D, time: number) {
         const {startTime, endTime, stackedStartPosition} = this.hitObject;
         const {x, y} = stackedStartPosition;
@@ -24,10 +28,21 @@ export class DrawableSpinner extends DrawableStandardHitObject<Spinner> {
     }
 
     opacity(time: number): number {
+        if (this.hidden) {
+            return Math.min(
+                super.opacity(time),
+                this.fadeOutOpacity(
+                    time,
+                    this.hitObject.endTime,
+                    this.hitObject.timePreempt * DrawableStandardHitObject.HIDDEN_FADE_OUT_DURATION_MULTIPLIER,
+                ),
+            );
+        }
+
         let opacity = super.opacity(time);
 
         if (time > this.hitObject.endTime) {
-            opacity = 1 - (time - this.hitObject.endTime) / this.HIT_DURATION;
+            opacity = this.fadeOutOpacity(time, this.hitObject.endTime);
         }
 
         return opacity;

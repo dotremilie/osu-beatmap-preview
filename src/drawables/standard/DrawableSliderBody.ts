@@ -8,8 +8,13 @@ export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
     accentColor: Color4;
     borderColor: Color4;
 
-    constructor(hitObject: Slider, accentColor: Color4 = new Color4(255, 255, 255), borderColor: Color4 = new Color4(255, 255, 255)) {
-        super(hitObject);
+    constructor(
+        hitObject: Slider,
+        accentColor: Color4 = new Color4(255, 255, 255),
+        borderColor: Color4 = new Color4(255, 255, 255),
+        hidden = false,
+    ) {
+        super(hitObject, hidden);
         this.accentColor = accentColor;
         this.borderColor = borderColor;
     }
@@ -43,10 +48,16 @@ export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
     }
 
     opacity(time: number): number {
+        if (this.hidden) {
+            const fadeStartTime = this.hitObject.startTime - this.hitObject.timePreempt + this.hitObject.timeFadeIn;
+
+            return this.hiddenOpacity(time, fadeStartTime, this.hitObject.endTime - fadeStartTime);
+        }
+
         let opacity = super.opacity(time);
 
         if (time > this.hitObject.endTime) {
-            opacity = 1 - (time - this.hitObject.endTime) / this.HIT_DURATION;
+            opacity = this.fadeOutOpacity(time, this.hitObject.endTime);
         }
 
         return opacity;

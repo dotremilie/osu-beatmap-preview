@@ -1,5 +1,5 @@
 import {Circle, Slider, Spinner, StandardBeatmap, StandardHitObject} from "osu-standard-stable";
-import {Color4} from "osu-classes";
+import {Color4, ModBitwise} from "osu-classes";
 import {DrawableSpinner} from "../drawables/standard/DrawableSpinner";
 import {DrawableCircle} from "../drawables/standard/DrawableCircle";
 import {DrawableSlider} from "../drawables/standard/DrawableSlider";
@@ -22,16 +22,17 @@ export default class StandardRenderer extends RulesetRenderer<StandardBeatmap, D
         }
 
         const {comboColors} = this.beatmap.colors;
+        const hidden = this.beatmap.mods?.has(ModBitwise.Hidden) ?? false;
 
         this.beatmap.hitObjects.forEach((object) => {
             const color = comboColors[object.comboIndexWithOffsets % comboColors.length];
 
             if (object instanceof Spinner) {
-                this.drawableHitObjects.push(new DrawableSpinner(object));
+                this.drawableHitObjects.push(new DrawableSpinner(object, hidden));
             } else if (object instanceof Slider) {
-                this.drawableHitObjects.push(new DrawableSlider(object, color));
+                this.drawableHitObjects.push(new DrawableSlider(object, color, hidden));
             } else if (object instanceof Circle) {
-                this.drawableHitObjects.push(new DrawableCircle(object, color));
+                this.drawableHitObjects.push(new DrawableCircle(object, color, hidden));
             }
         });
 

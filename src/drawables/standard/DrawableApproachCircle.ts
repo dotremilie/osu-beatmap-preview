@@ -25,10 +25,14 @@ export class DrawableApproachCircle {
     }
 
     opacity(time: number): number {
+        if (this.drawableCircle.hidden) {
+            return 0;
+        }
+
         let opacity = 0;
 
         if (time <= this.drawableCircle.hitObject.startTime) {
-            opacity = Math.max(0, time - (this.drawableCircle.hitObject.startTime - this.drawableCircle.hitObject.timePreempt)) / this.drawableCircle.hitObject.timeFadeIn;
+            opacity = this.drawableCircle.opacity(time);
         }
 
         return opacity;

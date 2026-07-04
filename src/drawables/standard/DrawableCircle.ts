@@ -8,8 +8,8 @@ export class DrawableCircle extends DrawableStandardHitObject<Circle> {
 
     approachCircle: DrawableApproachCircle;
 
-    constructor(hitObject: Circle, color: Color4) {
-        super(hitObject);
+    constructor(hitObject: Circle, color: Color4, hidden = false) {
+        super(hitObject, hidden);
         this.color = color;
         this.approachCircle = new DrawableApproachCircle(this);
     }
@@ -57,10 +57,14 @@ export class DrawableCircle extends DrawableStandardHitObject<Circle> {
     }
 
     opacity(time: number): number {
+        if (this.hidden) {
+            return this.hiddenOpacity(time);
+        }
+
         let opacity = super.opacity(time);
 
         if (time > this.hitObject.startTime) {
-            opacity = 1 - (time - this.hitObject.startTime) / this.HIT_DURATION;
+            opacity = this.fadeOutOpacity(time, this.hitObject.startTime);
         }
 
         return opacity;

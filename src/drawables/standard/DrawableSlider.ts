@@ -14,15 +14,15 @@ export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     //sliderRepeat: DrawableSliderRepeat;
     //sliderTail: DrawableSliderTail;
 
-    constructor(hitObject: Slider, color: Color4) {
-        super(hitObject);
+    constructor(hitObject: Slider, color: Color4, hidden = false) {
+        super(hitObject, hidden);
         this.color = color;
 
         const accentColor = new Color4(color.red / 4, color.green / 4, color.blue / 4);
         const borderColor = new Color4(color.red, color.green, color.blue);
 
-        this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor);
-        this.sliderHead = new DrawableSliderHead(hitObject, color);
+        this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor, hidden);
+        this.sliderHead = new DrawableSliderHead(hitObject, color, hidden);
         this.sliderBall = new DrawableSliderBall(this);
         //this.sliderRepeat = new DrawableSliderRepeat(hitObject, color);
         //this.sliderTail = new DrawableSliderTail(hitObject, color);
@@ -35,10 +35,16 @@ export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     }
 
     opacity(time: number): number {
+        if (this.hidden) {
+            const fadeStartTime = this.hitObject.startTime - this.hitObject.timePreempt + this.hitObject.timeFadeIn;
+
+            return this.hiddenOpacity(time, fadeStartTime, this.hitObject.endTime - fadeStartTime);
+        }
+
         let opacity = super.opacity(time);
 
         if (time > this.hitObject.endTime) {
-            opacity = 1 - (time - this.hitObject.endTime) / this.HIT_DURATION;
+            opacity = this.fadeOutOpacity(time, this.hitObject.endTime);
         }
 
         return opacity;
