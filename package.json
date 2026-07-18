@@ -1,6 +1,6 @@
 {
   "name": "osu-beatmap-preview",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Canvas renderer for osu!standard beatmap previews.",
   "license": "MIT",
   "author": "dotremilie",
@@ -34,7 +34,8 @@
   },
   "scripts": {
     "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
     "build": "npm run clean && vite build && tsc -p tsconfig.build.json",
     "prepack": "npm run build"
   },
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "typescript": "~5.7.2",
-    "vite": "^6.4.3"
+    "vite": "^6.4.3",
+    "vitest": "^4.1.10"
   }
 }

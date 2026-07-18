@@ -9,19 +9,23 @@ import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardH
 export const CIRCLE_BORDER_WIDTH = 0.15;
 
 export default class StandardRenderer extends RulesetRenderer<StandardBeatmap, DrawableStandardHitObject<StandardHitObject>> {
-    protected readonly DEFAULT_COLORS =  [
-        new Color4(0, 202, 0),
-        new Color4(18, 124, 255),
-        new Color4(242, 24, 57),
-        new Color4(255, 192, 0),
-    ];
+    protected get DEFAULT_COLORS(): Color4[] {
+        return [
+            new Color4(0, 202, 0),
+            new Color4(18, 124, 255),
+            new Color4(242, 24, 57),
+            new Color4(255, 192, 0),
+        ];
+    }
 
     protected initializeDrawableHitObjects(): void {
-        if (this.beatmap.colors.comboColors.length === 0) {
-            this.beatmap.colors.comboColors = this.DEFAULT_COLORS;
+        let comboColors = this.beatmap.colors.comboColors;
+
+        if (!comboColors?.length) {
+            comboColors = this.DEFAULT_COLORS;
+            this.beatmap.colors.comboColors = comboColors;
         }
 
-        const {comboColors} = this.beatmap.colors;
         const hidden = this.beatmap.mods?.has(ModBitwise.Hidden) ?? false;
 
         this.beatmap.hitObjects.forEach((object) => {

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "src/index.ts",
+    "src/previewers/**/*.ts",
+    "src/renderers/**/*.ts",
+    "src/drawables/**/*.ts",
+    "src/utils/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}
