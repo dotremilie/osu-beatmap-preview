@@ -8,6 +8,7 @@ pnpm-debug.log*
 
 node_modules
 dist
+demo-dist
 *.local
 *.tsbuildinfo
 

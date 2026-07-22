@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client"]
+  },
+  "include": [
+    "demo/**/*.ts",
+    "src/index.ts",
+    "src/previewers/**/*.ts",
+    "src/renderers/**/*.ts",
+    "src/drawables/**/*.ts",
+    "src/utils/**/*.ts"
+  ]
+}

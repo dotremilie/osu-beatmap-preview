@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive demo for osu-beatmap-preview" />
+    <title>osu! beatmap preview — renderer demo</title>
+</head>
+<body>
+<main class="app-shell">
+    <header class="topbar">
+        <a class="brand" href="https://github.com/dotremilie/osu-beatmap-preview" target="_blank" rel="noreferrer">osu! beatmap preview</a>
+        <span class="eyebrow">renderer demo</span>
+    </header>
+
+    <section class="demo-card" aria-label="Beatmap renderer demo">
+        <div class="stage">
+            <canvas id="preview" aria-label="Rendered osu! playfield"></canvas>
+        </div>
+
+        <div class="info-row">
+            <div class="track-info">
+                <span class="label">Now previewing</span>
+                <div class="track-line">
+                    <h1 id="title">Renderer Showcase</h1>
+                    <p id="artist">osu-beatmap-preview · Demo</p>
+                </div>
+            </div>
+            <div class="beatmap-actions">
+                <label class="map-picker">
+                    <span class="sr-only">Showcase beatmap</span>
+                    <select id="beatmap-select">
+                        <option value="renatus">Renatus</option>
+                        <option value="aspire">Aspire</option>
+                        <option value="neto">Net0</option>
+                    </select>
+                </label>
+                <label class="file-button">
+                    <input id="beatmap-file" type="file" accept=".osu,text/plain" />
+                    <span>Open .osu</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="transport">
+            <button id="play" class="play-button" type="button" aria-label="Pause preview">Pause</button>
+            <span id="current-time" class="time">0:00.000</span>
+            <label class="timeline-label" for="timeline">Preview position</label>
+            <input id="timeline" class="timeline" type="range" min="0" max="16000" step="1" value="0" />
+            <span id="duration" class="time">0:16.000</span>
+            <button id="restart" class="restart-button" type="button">Restart</button>
+        </div>
+
+        <div class="demo-footer">
+            <p id="status" role="status">Loaded Renatus showcase</p>
+            <p><kbd>Space</kbd> play / pause</p>
+        </div>
+    </section>
+</main>
+
+<script type="module" src="/main.ts"></script>
+</body>
+</html>

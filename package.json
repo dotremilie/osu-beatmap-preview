@@ -34,9 +34,11 @@
   },
   "scripts": {
     "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\"",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.demo.json --noEmit",
     "test": "vitest run",
     "build": "npm run clean && vite build && tsc -p tsconfig.build.json",
+    "demo": "vite --config vite.demo.config.ts",
+    "demo:build": "vite build --config vite.demo.config.ts",
     "prepack": "npm run build"
   },
   "dependencies": {
