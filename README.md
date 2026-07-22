@@ -71,7 +71,7 @@ The renderer accepts an existing `HTMLCanvasElement`. It does not query the DOM,
 
 ### Prerequisites
 
-- Node.js 18 or newer.
+- Node.js 20.19 or newer (Node.js 22.12+ is also supported).
 - npm.
 
 ### Setup

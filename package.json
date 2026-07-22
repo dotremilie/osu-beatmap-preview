@@ -44,11 +44,11 @@
   "dependencies": {
     "osu-classes": "^3.1.0",
     "osu-parsers": "^4.1.7",
-    "osu-standard-stable": "^5.0.0"
+    "osu-standard-stable": "^5.0.1"
   },
   "devDependencies": {
-    "typescript": "~5.7.2",
-    "vite": "^6.4.3",
+    "typescript": "~7.0.2",
+    "vite": "^8.1.5",
     "vitest": "^4.1.10"
   }
 }
