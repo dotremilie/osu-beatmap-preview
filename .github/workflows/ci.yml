@@ -38,5 +38,8 @@ jobs:
       - name: Build package
         run: npm run build
 
+      - name: Build demo
+        run: npm run demo:build
+
       - name: Verify package contents
         run: npm pack --dry-run --ignore-scripts
