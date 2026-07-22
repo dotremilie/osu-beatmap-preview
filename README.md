@@ -10,6 +10,7 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 - Correctly computed complex slider shapes. The original `osu-preview` implementation freezes on Bezier sliders with multiple anchors due to incorrect computation. It is mathematically correct for a Bezier curve, but osu! uses approximation for Beziers. For more details, see [PathApproximator.cs#L79](https://github.com/ppy/osu-framework/blob/master/osu.Framework/Utils/PathApproximator.cs#L79).
 - Aspire maps are supported.
 - Catmull sliders are rendered correctly.
+- Argon-style slider ball, follow circle, repeats, and score-point ticks.
 - Multiple previews can be created at once without noticeable performance drawbacks.
 - Canvas-first API with no React, browser extension, or UI dependency.
 - osu!standard mod bitmasks can be passed when loading a beatmap.
@@ -17,7 +18,7 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 
 ## Missing, Planned Features
 
-- Slider repeats and tails are not fully implemented.
+- Slider tails are not fully implemented.
 - Full skinning API.
 - Mania rendering is not part of the public package yet.
 

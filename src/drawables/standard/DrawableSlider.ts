@@ -1,9 +1,12 @@
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
-import {Slider} from "osu-standard-stable";
+import {SliderRepeat, SliderTick} from "osu-standard-stable";
+import type {Slider} from "osu-standard-stable";
 import {Color4} from "osu-classes";
 import {DrawableSliderBody} from "./DrawableSliderBody";
 import {DrawableSliderHead} from "./DrawableSliderHead";
 import {DrawableSliderBall} from "./DrawableSliderBall";
+import {DrawableSliderRepeat} from "./DrawableSliderRepeat";
+import {DrawableSliderTick} from "./DrawableSliderTick";
 
 export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     color: Color4;
@@ -11,7 +14,8 @@ export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     sliderBody: DrawableSliderBody;
     sliderHead: DrawableSliderHead;
     sliderBall: DrawableSliderBall;
-    //sliderRepeat: DrawableSliderRepeat;
+    sliderTicks: DrawableSliderTick[];
+    sliderRepeats: DrawableSliderRepeat[];
     //sliderTail: DrawableSliderTail;
 
     constructor(hitObject: Slider, color: Color4, hidden = false) {
@@ -24,12 +28,27 @@ export class DrawableSlider extends DrawableStandardHitObject<Slider> {
         this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor, hidden);
         this.sliderHead = new DrawableSliderHead(hitObject, color, hidden);
         this.sliderBall = new DrawableSliderBall(this);
-        //this.sliderRepeat = new DrawableSliderRepeat(hitObject, color);
+        this.sliderTicks = hitObject.nestedHitObjects
+            .filter((nested): nested is SliderTick => nested instanceof SliderTick)
+            .map((tick) => {
+                const drawable = new DrawableSliderTick(tick, hidden);
+                drawable.parentHitObject = this;
+                return drawable;
+            });
+        this.sliderRepeats = hitObject.nestedHitObjects
+            .filter((nested): nested is SliderRepeat => nested instanceof SliderRepeat)
+            .map((repeat) => {
+                const drawable = new DrawableSliderRepeat(repeat, hidden);
+                drawable.parentHitObject = this;
+                return drawable;
+            });
         //this.sliderTail = new DrawableSliderTail(hitObject, color);
     }
 
     draw(ctx: CanvasRenderingContext2D, time: number) {
         this.sliderBody.draw(ctx, time);
+        this.sliderTicks.forEach((tick) => tick.draw(ctx, time));
+        this.sliderRepeats.forEach((repeat) => repeat.draw(ctx, time));
         this.sliderBall.draw(ctx, time);
         this.sliderHead.draw(ctx, time);
     }
