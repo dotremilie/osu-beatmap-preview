@@ -3,7 +3,7 @@ import {Hold, ManiaBeatmap, ManiaHitObject, Note} from "osu-mania-stable";
 import {DrawableManiaHitObject} from "../drawables/mania/DrawableManiaHitObject";
 import {DrawableNote} from "../drawables/mania/DrawableNote";
 import {DrawableHoldNote} from "../drawables/mania/DrawableHoldNote";
-import Renderer from "../../../renderers/Renderer";
+import BeatmapRenderer from "../../../renderers/BeatmapRenderer";
 
 export const LEFT_MARGIN = 32;
 export const SCROLL_FACTOR = 1;
@@ -15,7 +15,7 @@ export const DEFAULT_COLORS = [
     new Color4(255, 200, 40),
 ];
 
-export default class ManiaRenderer extends Renderer<ManiaBeatmap, DrawableManiaHitObject<ManiaHitObject>>{
+export default class ManiaRenderer extends BeatmapRenderer<ManiaBeatmap, DrawableManiaHitObject<ManiaHitObject>>{
     protected initializeDrawableHitObjects(): void {
         this.beatmap.hitObjects.forEach((object) => {
             const color = DEFAULT_COLORS[

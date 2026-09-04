@@ -1,7 +1,7 @@
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {Slider, SliderTail} from "osu-standard-stable";
 import {DrawableSlider} from "./DrawableSlider";
-import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardRenderer";
+import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardBeatmapRenderer";
 
 export class DrawableSliderTail extends DrawableStandardHitObject<SliderTail> {
     get slider(): Slider {

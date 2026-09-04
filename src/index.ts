@@ -1,7 +1,7 @@
-export {default as StandardBeatmapPreview} from "./previewers/StandardBeatmapPreview";
-export {default as StandardRenderer} from "./renderers/StandardRenderer";
+export {default as StandardBeatmapPreviewer} from "./previewers/StandardBeatmapPreviewer";
+export {default as StandardBeatmapRenderer} from "./renderers/StandardBeatmapRenderer";
 export type {
     BeatmapPreviewOptions,
     LoadBeatmapOptions,
-    PlayfieldOffset,
+    Offset,
 } from "./previewers/BeatmapPreviewer";

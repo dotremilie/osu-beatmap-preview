@@ -37,10 +37,10 @@ import "osu-beatmap-preview/assets/fonts/torus.css";
 ```
 
 ```ts
-import {StandardBeatmapPreview} from "osu-beatmap-preview";
+import {StandardBeatmapPreviewer} from "osu-beatmap-preview";
 
 const canvas = document.querySelector("canvas")!;
-const preview = new StandardBeatmapPreview(canvas, {
+const preview = new StandardBeatmapPreviewer(canvas, {
   width: 640,
   height: 480,
 });

@@ -3,12 +3,12 @@ import {Color4, ModBitwise} from "osu-classes";
 import {DrawableSpinner} from "../drawables/standard/DrawableSpinner";
 import {DrawableCircle} from "../drawables/standard/DrawableCircle";
 import {DrawableSlider} from "../drawables/standard/DrawableSlider";
-import RulesetRenderer from "./Renderer";
+import BeatmapRenderer from "./BeatmapRenderer";
 import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardHitObject";
 
 export const CIRCLE_BORDER_WIDTH = 0.15;
 
-export default class StandardRenderer extends RulesetRenderer<StandardBeatmap, DrawableStandardHitObject<StandardHitObject>> {
+export default class StandardBeatmapRenderer extends BeatmapRenderer<StandardBeatmap, DrawableStandardHitObject<StandardHitObject>> {
     protected get DEFAULT_COLORS(): Color4[] {
         return [
             new Color4(0, 202, 0),

@@ -1,6 +1,6 @@
 import "../assets/fonts/torus.css";
 import "./style.css";
-import {StandardBeatmapPreview} from "../src";
+import {StandardBeatmapPreviewer} from "../src";
 import renatus from "./beatmaps/Renatus.osu?raw";
 import aspire from "./beatmaps/aspire.osu?raw";
 import neto from "./beatmaps/neto.osu?raw";
@@ -25,7 +25,7 @@ const status = getElement<HTMLElement>("status");
 const fileInput = getElement<HTMLInputElement>("beatmap-file");
 const beatmapSelect = getElement<HTMLSelectElement>("beatmap-select");
 
-const preview = new StandardBeatmapPreview(canvas, {
+const preview = new StandardBeatmapPreviewer(canvas, {
     width: 640,
     height: 480,
     devicePixelRatio: Math.min(globalThis.devicePixelRatio ?? 1, 2),

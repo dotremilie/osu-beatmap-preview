@@ -1,9 +1,9 @@
 import {HitObject, Ruleset, RulesetBeatmap} from "osu-classes";
 import {BeatmapDecoder} from "osu-parsers";
 import DrawableHitObject from "../drawables/DrawableHitObject";
-import Renderer from "../renderers/Renderer";
+import BeatmapRenderer from "../renderers/BeatmapRenderer";
 
-export interface PlayfieldOffset {
+export interface Offset {
     x: number;
     y: number;
 }
@@ -12,7 +12,7 @@ export interface BeatmapPreviewOptions {
     width?: number;
     height?: number;
     devicePixelRatio?: number;
-    playfieldOffset?: PlayfieldOffset;
+    offset?: Offset;
     useBeatmapPreviewTime?: boolean;
 }
 
@@ -23,11 +23,11 @@ export interface LoadBeatmapOptions {
 
 const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGHT = 480;
-const DEFAULT_PLAYFIELD_OFFSET: PlayfieldOffset = {x: 64, y: 48};
+const DEFAULT_PLAYFIELD_OFFSET: Offset = {x: 64, y: 48};
 
 export default abstract class BeatmapPreviewer<
     TBeatmap extends RulesetBeatmap,
-    TRenderer extends Renderer<TBeatmap, DrawableHitObject<HitObject>>
+    TRenderer extends BeatmapRenderer<TBeatmap, DrawableHitObject<HitObject>>
 > {
     protected readonly canvas: HTMLCanvasElement;
     protected readonly ctx: CanvasRenderingContext2D;
@@ -35,7 +35,7 @@ export default abstract class BeatmapPreviewer<
     private readonly decoder = new BeatmapDecoder();
     private readonly ruleset: Ruleset;
     private readonly createRenderer: (ctx: CanvasRenderingContext2D, beatmap: TBeatmap) => TRenderer;
-    private readonly playfieldOffset: PlayfieldOffset;
+    private readonly offset: Offset;
     private readonly useBeatmapPreviewTime: boolean;
 
     private renderer?: TRenderer;
@@ -60,7 +60,7 @@ export default abstract class BeatmapPreviewer<
         this.ctx = ctx;
         this.ruleset = ruleset;
         this.createRenderer = createRenderer;
-        this.playfieldOffset = options.playfieldOffset ?? DEFAULT_PLAYFIELD_OFFSET;
+        this.offset = options.offset ?? DEFAULT_PLAYFIELD_OFFSET;
         this.useBeatmapPreviewTime = options.useBeatmapPreviewTime ?? false;
 
         this.resize(
@@ -99,7 +99,7 @@ export default abstract class BeatmapPreviewer<
         this.clear();
 
         this.ctx.save();
-        this.ctx.translate(this.playfieldOffset.x, this.playfieldOffset.y);
+        this.ctx.translate(this.offset.x, this.offset.y);
         this.renderer.render(timeMs + this.previewTime);
         this.ctx.restore();
     }
