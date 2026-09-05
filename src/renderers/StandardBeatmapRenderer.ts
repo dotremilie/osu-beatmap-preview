@@ -1,30 +1,32 @@
 import {Circle, Slider, Spinner, StandardBeatmap, StandardHitObject} from "osu-standard-stable";
-import {Color4, ModBitwise} from "osu-classes";
+import {ModBitwise} from "osu-classes";
 import {DrawableSpinner} from "../drawables/standard/DrawableSpinner";
 import {DrawableCircle} from "../drawables/standard/DrawableCircle";
 import {DrawableSlider} from "../drawables/standard/DrawableSlider";
 import BeatmapRenderer from "./BeatmapRenderer";
 import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardHitObject";
+import {getStandardComboColors} from "../utils/StandardComboColors";
+import TimeIntervalIndex from "../utils/TimeIntervalIndex";
+import {releaseSliderPathCache} from "../drawables/standard/SliderPathRasterCache";
 
 export const CIRCLE_BORDER_WIDTH = 0.15;
 
 export default class StandardBeatmapRenderer extends BeatmapRenderer<StandardBeatmap, DrawableStandardHitObject<StandardHitObject>> {
-    protected get DEFAULT_COLORS(): Color4[] {
-        return [
-            new Color4(0, 202, 0),
-            new Color4(18, 124, 255),
-            new Color4(242, 24, 57),
-            new Color4(255, 192, 0),
-        ];
+    private readonly intervalIndex: TimeIntervalIndex;
+    private readonly visibleIndices: number[] = [];
+
+    constructor(ctx: CanvasRenderingContext2D, beatmap: StandardBeatmap) {
+        super(ctx, beatmap);
+
+        this.intervalIndex = new TimeIntervalIndex(this.drawableHitObjects.map(object => ({
+            startTime: object.hitObject.startTime - object.hitObject.timePreempt,
+            endTime: (object instanceof DrawableSlider || object instanceof DrawableSpinner
+                ? object.hitObject.endTime : object.hitObject.startTime) + object.HIT_DURATION,
+        })));
     }
 
     protected initializeDrawableHitObjects(): void {
-        let comboColors = this.beatmap.colors.comboColors;
-
-        if (!comboColors?.length) {
-            comboColors = this.DEFAULT_COLORS;
-            this.beatmap.colors.comboColors = comboColors;
-        }
+        const comboColors = getStandardComboColors(this.beatmap);
 
         const hidden = this.beatmap.mods?.has(ModBitwise.Hidden) ?? false;
 
@@ -42,22 +44,24 @@ export default class StandardBeatmapRenderer extends BeatmapRenderer<StandardBea
 
     }
 
+    public resize(width: number, height: number): void {
+        releaseSliderPathCache(this.ctx);
+    }
+
+    public dispose(): void {
+        releaseSliderPathCache(this.ctx);
+    }
+
     public render(time: number): void {
         time = time * this.beatmap.difficulty.clockRate;
+        this.intervalIndex.query(time, time, this.visibleIndices);
 
-        const hitObjects = this.drawableHitObjects.filter(object => {
-            if (time < object.hitObject.startTime - object.hitObject.timePreempt) return false;
+        for (const index of this.visibleIndices) {
+            this.drawableHitObjects[index].draw(this.ctx, time);
+        }
 
-            if (object instanceof DrawableSlider || object instanceof DrawableSpinner) {
-                return time <= object.hitObject.endTime + object.HIT_DURATION;
-            }
-
-            return time <= object.hitObject.startTime + object.HIT_DURATION;
-        }).reverse();
-
-        hitObjects.forEach(object => object.draw(this.ctx, time));
-
-        hitObjects.forEach((object) => {
+        for (const index of this.visibleIndices) {
+            const object = this.drawableHitObjects[index];
             if (object instanceof DrawableSlider) {
                 object.sliderHead.approachCircle.draw(this.ctx, time);
             }
@@ -65,6 +69,6 @@ export default class StandardBeatmapRenderer extends BeatmapRenderer<StandardBea
             if (object instanceof DrawableCircle) {
                 object.approachCircle.draw(this.ctx, time);
             }
-        });
+        }
     }
 }

@@ -9,4 +9,10 @@ export default abstract class Renderer {
      * Renders the frame for the given time.
      */
     public abstract render(time: number): void;
+
+    /** Updates the available canvas size in logical pixels. */
+    public resize(width: number, height: number): void {}
+
+    /** Releases resources owned by the renderer. */
+    public dispose(): void {}
 }

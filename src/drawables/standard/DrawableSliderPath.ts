@@ -1,14 +1,9 @@
 import type {Color4, SliderPath, Vector2} from "osu-classes";
-
-type SliderPathBuffer = HTMLCanvasElement | OffscreenCanvas;
-type SliderPathBufferContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+import {getSliderPathRaster, SliderPathRasterContext} from "./SliderPathRasterCache";
 
 /** Draws the static geometry and colours of a slider path. */
 export class DrawableSliderPath {
     static readonly ARGON_PRO_BODY_ALPHA = 0.92;
-
-    private buffer?: SliderPathBuffer;
-    private bufferContext?: SliderPathBufferContext;
 
     constructor(
         public readonly path: SliderPath,
@@ -22,6 +17,7 @@ export class DrawableSliderPath {
         position: Vector2,
         radius: number,
         opacity: number,
+        points: readonly Vector2[] = this.path.path,
     ): void {
         if (opacity <= 0) return;
 
@@ -30,23 +26,67 @@ export class DrawableSliderPath {
         const outerGradientSize = (diameter * 2) - borderThickness * 4;
         const pathRadius = outerGradientSize / 2;
         const innerPathRadius = pathRadius - borderThickness * 2;
-        const points = this.path.path;
         const padding = pathRadius / 2 + 2;
         const bounds = DrawableSliderPath.bounds(position, points, padding);
-        const bufferContext = this.prepareBuffer(ctx, bounds.width, bounds.height);
+        const transform = ctx.getTransform();
+        const determinant = transform.a * transform.d - transform.b * transform.c;
+        if (!Number.isFinite(determinant) || determinant === 0) return;
 
-        if (!bufferContext || !this.buffer) return;
+        // Intersect the path with the canvas in local coordinates before allocating.
+        // Aspire sliders may extend tens of thousands of pixels off the playfield.
+        const visiblePoints = [
+            [0, 0], [ctx.canvas.width, 0],
+            [0, ctx.canvas.height], [ctx.canvas.width, ctx.canvas.height],
+        ].map(([x, y]) => ({
+            x: (transform.d * (x - transform.e) - transform.c * (y - transform.f)) / determinant,
+            y: (transform.a * (y - transform.f) - transform.b * (x - transform.e)) / determinant,
+        }));
+        const right = Math.min(bounds.x + bounds.width, Math.ceil(Math.max(...visiblePoints.map(point => point.x))));
+        const bottom = Math.min(bounds.y + bounds.height, Math.ceil(Math.max(...visiblePoints.map(point => point.y))));
+        bounds.x = Math.max(bounds.x, Math.floor(Math.min(...visiblePoints.map(point => point.x))));
+        bounds.y = Math.max(bounds.y, Math.floor(Math.min(...visiblePoints.map(point => point.y))));
+        bounds.width = right - bounds.x;
+        bounds.height = bottom - bounds.y;
+        if (bounds.width <= 0 || bounds.height <= 0) return;
 
         const x = position.x - bounds.x;
         const y = position.y - bounds.y;
+        // The transform includes both the playfield scale and device pixel ratio.
+        const pixelWidth = Math.ceil(bounds.width * Math.max(1, Math.hypot(transform.a, transform.b)));
+        const pixelHeight = Math.ceil(bounds.height * Math.max(1, Math.hypot(transform.c, transform.d)));
+        const borderStyle = DrawableSliderPath.rgba(this.borderColor, opacity);
+        const bodyStyle = DrawableSliderPath.rgba(this.accentColor, opacity * this.bodyAlpha);
+        const buffer = getSliderPathRaster(ctx, this, {
+            width: bounds.width,
+            height: bounds.height,
+            pixelWidth,
+            pixelHeight,
+            key: [x, y, pathRadius, innerPathRadius, borderStyle, bodyStyle],
+            points,
+        }, bufferContext => {
+            this.drawPath(bufferContext, points, x, y, pathRadius, innerPathRadius, borderStyle, bodyStyle);
+        });
 
+        if (buffer) ctx.drawImage(buffer, bounds.x, bounds.y, bounds.width, bounds.height);
+    }
+
+    private drawPath(
+        bufferContext: SliderPathRasterContext,
+        points: readonly Vector2[],
+        x: number,
+        y: number,
+        pathRadius: number,
+        innerPathRadius: number,
+        borderStyle: string,
+        bodyStyle: string,
+    ): void {
         bufferContext.save();
         bufferContext.lineJoin = "round";
         bufferContext.lineCap = "round";
 
         this.tracePath(bufferContext, points, x, y);
         bufferContext.lineWidth = pathRadius;
-        bufferContext.strokeStyle = DrawableSliderPath.rgba(this.borderColor, opacity);
+        bufferContext.strokeStyle = borderStyle;
         bufferContext.stroke();
 
         // Remove the opaque centre of the border before adding the translucent
@@ -60,50 +100,14 @@ export class DrawableSliderPath {
         bufferContext.globalCompositeOperation = "source-over";
         this.tracePath(bufferContext, points, x, y);
         bufferContext.lineWidth = innerPathRadius;
-        bufferContext.strokeStyle = DrawableSliderPath.rgba(
-            this.accentColor,
-            opacity * this.bodyAlpha,
-        );
+        bufferContext.strokeStyle = bodyStyle;
         bufferContext.stroke();
         bufferContext.restore();
-
-        ctx.drawImage(this.buffer, bounds.x, bounds.y);
-    }
-
-    private prepareBuffer(
-        ctx: CanvasRenderingContext2D,
-        width: number,
-        height: number,
-    ): SliderPathBufferContext | null {
-        if (!this.buffer) {
-            if (typeof OffscreenCanvas !== "undefined") {
-                this.buffer = new OffscreenCanvas(width, height);
-            } else {
-                const canvas = ctx.canvas as HTMLCanvasElement;
-                const ownerDocument = canvas?.ownerDocument;
-
-                if (!ownerDocument) return null;
-
-                this.buffer = ownerDocument.createElement("canvas");
-            }
-
-            this.bufferContext = this.buffer.getContext("2d") as SliderPathBufferContext | null ?? undefined;
-        }
-
-        if (!this.bufferContext) return null;
-
-        if (this.buffer.width !== width) this.buffer.width = width;
-        if (this.buffer.height !== height) this.buffer.height = height;
-
-        this.bufferContext.clearRect(0, 0, width, height);
-        this.bufferContext.globalCompositeOperation = "source-over";
-
-        return this.bufferContext;
     }
 
     private tracePath(
-        ctx: SliderPathBufferContext,
-        points: Vector2[],
+        ctx: SliderPathRasterContext,
+        points: readonly Vector2[],
         x: number,
         y: number,
     ): void {
@@ -117,7 +121,7 @@ export class DrawableSliderPath {
 
     private static bounds(
         position: Vector2,
-        points: Vector2[],
+        points: readonly Vector2[],
         padding: number,
     ): {x: number; y: number; width: number; height: number} {
         let minX = position.x;

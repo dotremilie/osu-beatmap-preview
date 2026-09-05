@@ -1,6 +1,5 @@
-import {HitObject, Ruleset, RulesetBeatmap} from "osu-classes";
-import {BeatmapDecoder} from "osu-parsers";
-import DrawableHitObject from "../drawables/DrawableHitObject";
+import {Ruleset, RulesetBeatmap} from "osu-classes";
+import BeatmapLoader, {BeatmapLoaderOptions} from "../loaders/BeatmapLoader";
 import BeatmapRenderer from "../renderers/BeatmapRenderer";
 
 export interface Offset {
@@ -16,10 +15,11 @@ export interface BeatmapPreviewOptions {
     useBeatmapPreviewTime?: boolean;
 }
 
-export interface LoadBeatmapOptions {
-    mods?: number;
+export interface PreparedBeatmapOptions {
     useBeatmapPreviewTime?: boolean;
 }
+
+export interface LoadBeatmapOptions extends BeatmapLoaderOptions, PreparedBeatmapOptions {}
 
 const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGHT = 480;
@@ -27,21 +27,20 @@ const DEFAULT_PLAYFIELD_OFFSET: Offset = {x: 64, y: 48};
 
 export default abstract class BeatmapPreviewer<
     TBeatmap extends RulesetBeatmap,
-    TRenderer extends BeatmapRenderer<TBeatmap, DrawableHitObject<HitObject>>
+    TRenderer extends BeatmapRenderer<TBeatmap, unknown>
 > {
     protected readonly canvas: HTMLCanvasElement;
     protected readonly ctx: CanvasRenderingContext2D;
 
-    private readonly decoder = new BeatmapDecoder();
-    private readonly ruleset: Ruleset;
+    private readonly loader: BeatmapLoader<Ruleset>;
     private readonly createRenderer: (ctx: CanvasRenderingContext2D, beatmap: TBeatmap) => TRenderer;
     private readonly offset: Offset;
     private readonly useBeatmapPreviewTime: boolean;
 
     private renderer?: TRenderer;
     private previewTime = 0;
-    private width = DEFAULT_WIDTH;
-    private height = DEFAULT_HEIGHT;
+    protected width = DEFAULT_WIDTH;
+    protected height = DEFAULT_HEIGHT;
     private devicePixelRatio = 1;
 
     protected constructor(
@@ -58,7 +57,7 @@ export default abstract class BeatmapPreviewer<
 
         this.canvas = canvas;
         this.ctx = ctx;
-        this.ruleset = ruleset;
+        this.loader = new BeatmapLoader(ruleset);
         this.createRenderer = createRenderer;
         this.offset = options.offset ?? DEFAULT_PLAYFIELD_OFFSET;
         this.useBeatmapPreviewTime = options.useBeatmapPreviewTime ?? false;
@@ -75,20 +74,24 @@ export default abstract class BeatmapPreviewer<
     }
 
     public loadBeatmapText(osuText: string, options: LoadBeatmapOptions = {}): Readonly<TBeatmap> {
-        const rawBeatmap = this.decoder.decodeFromString(osuText);
-        return this.loadBeatmap(rawBeatmap as TBeatmap, options);
+        return this.loadPreparedBeatmap(this.loader.loadBeatmapText(osuText, options) as TBeatmap, options);
     }
 
-    public loadBeatmap(beatmap: TBeatmap, options: LoadBeatmapOptions = {}): Readonly<TBeatmap> {
-        const mods = this.ruleset.createModCombination(options.mods ?? 0);
-        const appliedBeatmap = this.ruleset.applyToBeatmapWithMods(beatmap, mods) as TBeatmap;
+    public loadBeatmap(beatmap: Readonly<TBeatmap>, options: LoadBeatmapOptions = {}): Readonly<TBeatmap> {
+        return this.loadPreparedBeatmap(this.loader.loadBeatmap(beatmap, options) as TBeatmap, options);
+    }
 
-        this.renderer = this.createRenderer(this.ctx, appliedBeatmap);
+    /** Attaches a prepared map without reapplying mods. Treat shared maps as read-only. */
+    public loadPreparedBeatmap(beatmap: Readonly<TBeatmap>, options: PreparedBeatmapOptions = {}): Readonly<TBeatmap> {
+        const renderer = this.createRenderer(this.ctx, beatmap as TBeatmap);
+        this.renderer?.dispose();
+        renderer.resize(this.width, this.height);
+        this.renderer = renderer;
         this.previewTime = (options.useBeatmapPreviewTime ?? this.useBeatmapPreviewTime)
-            ? appliedBeatmap.general.previewTime
+            ? beatmap.general.previewTime
             : 0;
 
-        return appliedBeatmap;
+        return beatmap;
     }
 
     public render(timeMs: number): void {
@@ -99,7 +102,7 @@ export default abstract class BeatmapPreviewer<
         this.clear();
 
         this.ctx.save();
-        this.ctx.translate(this.offset.x, this.offset.y);
+        this.applyTransform();
         this.renderer.render(timeMs + this.previewTime);
         this.ctx.restore();
     }
@@ -114,6 +117,11 @@ export default abstract class BeatmapPreviewer<
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
         this.ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        this.renderer?.resize(width, height);
+    }
+
+    protected applyTransform(): void {
+        this.ctx.translate(this.offset.x, this.offset.y);
     }
 
     public clear(): void {
@@ -121,6 +129,7 @@ export default abstract class BeatmapPreviewer<
     }
 
     public dispose(): void {
+        this.renderer?.dispose();
         this.renderer = undefined;
         this.clear();
     }

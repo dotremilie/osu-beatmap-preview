@@ -1,5 +1,5 @@
 import {Circle} from "osu-standard-stable";
-import {Color4} from "osu-classes";
+import {Color4, Vector2} from "osu-classes";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {DrawableApproachCircle} from "./DrawableApproachCircle";
 
@@ -15,12 +15,12 @@ export class DrawableCircle extends DrawableStandardHitObject<Circle> {
     }
 
     draw(ctx: CanvasRenderingContext2D, time: number) {
-        const {radius, stackedStartPosition, currentComboIndex} = this.hitObject;
-        let {x, y} = stackedStartPosition;
+        this.drawAt(ctx, this.hitObject.stackedStartPosition, this.hitObject.radius * this.scale(time), this.opacity(time));
+    }
 
-        const scale = this.scale(time);
-        const opacity = this.opacity(time);
-        const circleSize = radius * scale;
+    /** Draws the circle at an explicit position and size, independent of playback animation. */
+    drawAt(ctx: CanvasRenderingContext2D, position: Vector2, circleSize: number, opacity = 1, showCombo = true): void {
+        const {x, y} = position;
 
         const borderThickness = (circleSize * 2) * (2 / 58);
         const gradientThickness = borderThickness * 2.5;
@@ -49,11 +49,19 @@ export class DrawableCircle extends DrawableStandardHitObject<Circle> {
         ctx.arc(x, y, innerFillSize / 2, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.font = `700 ${circleSize * 0.7}px "Torus"`;
-        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = `rgba(255,255,255,${opacity})`;
-        ctx.fillText((currentComboIndex + 1).toString(), x, y + 1);
+        if (showCombo) {
+            ctx.font = `700 ${circleSize * 0.7}px "Torus"`;
+            ctx.textBaseline = 'alphabetic';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = `rgba(255,255,255,${opacity})`;
+            const comboNumber = (this.hitObject.currentComboIndex + 1).toString();
+            const bounds = ctx.measureText(comboNumber);
+            ctx.fillText(
+                comboNumber,
+                x + (bounds.actualBoundingBoxLeft - bounds.actualBoundingBoxRight) / 2,
+                y + (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2,
+            );
+        }
     }
 
     opacity(time: number): number {

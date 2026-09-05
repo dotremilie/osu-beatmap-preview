@@ -1,5 +1,5 @@
 import {Slider} from "osu-standard-stable";
-import {Color4} from "osu-classes";
+import {Color4, Vector2} from "osu-classes";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {DrawableSliderPath} from "./DrawableSliderPath";
 
@@ -42,12 +42,17 @@ export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
     }
 
     draw(ctx: CanvasRenderingContext2D, time: number): void {
-        this.sliderPath.draw(
+        this.drawAt(
             ctx,
             this.hitObject.stackedStartPosition,
             this.hitObject.radius,
             this.opacity(time),
         );
+    }
+
+    /** Draws the body with optional projected geometry without changing the hitobject's path. */
+    drawAt(ctx: CanvasRenderingContext2D, position: Vector2, radius: number, opacity = 1, points?: readonly Vector2[]): void {
+        this.sliderPath.draw(ctx, position, radius, opacity, points);
     }
 
     opacity(time: number): number {

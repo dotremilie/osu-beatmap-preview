@@ -15,6 +15,7 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 - Canvas-first API with no React, browser extension, or UI dependency.
 - osu!standard mod bitmasks can be passed when loading a beatmap.
 - Torus font assets are included for combo number rendering.
+- A centered hitobject timeline with zoom, combo colors, slider/spinner durations, and a timing-aligned ruler with configurable beat subdivisions.
 
 ## Missing, Planned Features
 
@@ -56,16 +57,96 @@ preview.render(42_000);
 
 ## API
 
-- `new StandardBeatmapPreview(canvas, options?)`
+- `new StandardBeatmapPreviewer(canvas, options?)`
 - `loadBeatmapText(osuText, options?)`
 - `loadBeatmap(beatmap, options?)`
+- `loadPreparedBeatmap(beatmap, options?)`
 - `render(timeMs)`
 - `resize(width, height, devicePixelRatio?)`
 - `clear()`
 - `dispose()`
 - `beatmap`
 
+The standard preview fits and centers its 640 × 480 logical playfield within the requested canvas size. `resize` updates the drawing buffer using the device pixel ratio and preserves the playfield's aspect ratio, including in the demo's fullscreen mode.
+
 The renderer accepts an existing `HTMLCanvasElement`. It does not query the DOM, fetch beatmaps, manage playback time, or provide UI controls.
+
+Both renderers select overlapping hitobject intervals before drawing. Slider body rasters use a per-canvas LRU cache limited to 16,777,216 pixels (64 MiB of nominal RGBA storage) and 256 entries, plus one shared scratch surface for individual rasters larger than that budget. Unchanged bodies reuse their pixels; geometry, appearance, clipping, and resolution changes invalidate them. Resizing, replacing a map, or disposing a view releases its cached surfaces. Direct renderer users should also call `dispose()` when finished.
+
+### Sharing a prepared beatmap
+
+Both previewers work independently with `loadBeatmapText()` or `loadBeatmap()`. When using multiple views, prepare the map once with the optional loader and attach the same result to each view:
+
+```ts
+import {BeatmapLoader} from "osu-beatmap-preview";
+import {StandardRuleset} from "osu-standard-stable";
+
+const loader = new BeatmapLoader(new StandardRuleset());
+const beatmap = loader.loadBeatmapText(osuText, {mods: 0});
+preview.loadPreparedBeatmap(beatmap);
+timeline.loadPreparedBeatmap(beatmap);
+```
+
+`BeatmapLoader` is ruleset-agnostic: it uses the supplied ruleset for preparation and infers that ruleset's return type. Its `loadBeatmap(beatmap, {mods})` method also accepts an existing decoded map. It applies mods and generates hitobjects without creating a canvas. Preparation operates on a clone of the decoded source so mods cannot mutate the source or another prepared map. Replacing mods starts from that source to avoid compounding changes. `loadPreparedBeatmap()` attaches its result without repeating that work; it accepts only the per-view `useBeatmapPreviewTime` option. Resizing, zooming, playback, and rendering resources belong to each view. Disposing or replacing one view does not dispose the shared beatmap or the other view.
+
+Treat prepared beatmaps and their nested data as read-only while attached. To change mods or edit geometry, prepare and attach a new map. The dependency may populate internal geometry caches lazily, so prepared maps should not be deep-frozen. A map returned by either previewer's standalone loading methods can also be attached to another view using `loadPreparedBeatmap()`.
+
+For mod changes on externally prepared maps, supply the original decoded map or ensure their `base` still contains the unmodified source. The loader cannot recover geometry already changed by an external conversion.
+
+### Timeline preview
+
+Use a second canvas to show nearby hitobjects with the current playback time at the center:
+
+```ts
+import {StandardTimelinePreviewer} from "osu-beatmap-preview";
+
+const timelineCanvas = document.querySelector<HTMLCanvasElement>("#hitobject-timeline")!;
+const timeline = new StandardTimelinePreviewer(timelineCanvas, {
+  width: 640,
+  height: 46,
+  timeRange: 4000,
+  beatSnapDivisor: 4, // Show quarter-beat subdivisions.
+  objectRadius: 16, // Hitobject radius in logical canvas pixels.
+});
+
+timeline.loadBeatmapText(osuText, {mods: 0});
+let currentTimeMs = 42_000;
+const durationMs = timeline.beatmap!.totalLength;
+
+function render(timeMs: number) {
+  preview.render(timeMs);
+  timeline.render(timeMs);
+}
+
+timeline.zoom(2); // Zoom in around the current time: show 2 seconds.
+timeline.beatSnapDivisor = 8; // Switch to eighth-beat subdivisions.
+render(currentTimeMs);
+
+// Seek to a clicked position, accounting for CSS scaling of the canvas.
+timelineCanvas.addEventListener("click", (event) => {
+  const bounds = timelineCanvas.getBoundingClientRect();
+  const x = (event.clientX - bounds.left) / bounds.width * 640;
+  const nextTime = timeline.timeAtPosition(x, currentTimeMs);
+  currentTimeMs = Math.max(0, Math.min(nextTime, durationMs));
+  render(currentTimeMs);
+});
+```
+
+`StandardTimelinePreviewer` supports the same loading, rendering, resizing, and lifecycle methods as `StandardBeatmapPreviewer`. Pass the same load options and playback time to both views. An existing decoded beatmap can also be passed to `loadBeatmap(beatmap, options?)`.
+
+- `timeRange`: visible duration in playback milliseconds, default `4000`, clamped to `250`–`60000`. Assign a positive finite number to change it.
+- `beatSnapDivisor`: ruler subdivisions per beat, default `4`. Accepts integers from `1` to `16` in the constructor or as a property; `3` gives triplets and `4` gives quarter beats. This changes the ruler grid; seeking remains continuous.
+- `zoom(factor)`: factors above `1` zoom in; factors below `1` zoom out. The factor must be positive and finite.
+- `objectRadius`: hitobject radius in logical canvas pixels, default `16`. Accepts positive finite numbers in the constructor or as a property. Heads, bodies, combo numbers, and slider markers scale together. Use `resize` to provide enough canvas height for larger objects.
+- `timeAtPosition(x, currentTimeMs)`: converts a logical canvas x coordinate to playback time. The center always returns `currentTimeMs`, including with clock-rate mods or preview-time offsets.
+
+The ruler follows the beatmap's timing points: ticks align to each timing offset and BPM, with stronger marks for beats and measures using the active time signature. BPM and meter changes take effect at their timing points. Clock-rate mods and preview-time offsets keep the ruler aligned with the hitobjects. When zoomed out, subdivisions that would overlap are hidden while the remaining marks stay aligned to beats or measures.
+
+Tick colors and height ratios follow osu!lazer's [beat divisor styles](https://github.com/ppy/osu/blob/master/osu.Game/Screens/Edit/BindableBeatDivisor.cs), scaled to a 10 px maximum height. Bar downbeats are 2 px wide at 100% height; all other ticks are 1 px wide. Beats and halves use 90% height, thirds and quarters 80%, sixths and eighths 70%, and remaining subdivisions 60%. All ticks remain bottom-aligned.
+
+Call `render(timeMs)` after zooming, resizing, or changing `beatSnapDivisor` or `objectRadius`. Scroll by changing the playback time supplied to `render`; wheel, drag, keyboard events, and time bounds remain in the consuming application. Nearby objects remain visible independently of approach rate or Hidden, so the timeline can be used to inspect patterns. Sliders and spinners span their full durations, including when their heads are outside the view.
+
+For direct canvas integration, `StandardTimelineRenderer` and its `TimelineViewport` are also exported. Call `renderer.resize(width, height)` with logical dimensions when the canvas size changes.
 
 ## Development
 
@@ -102,7 +183,7 @@ Start the local renderer demo:
 npm run demo
 ```
 
-Open the URL printed by Vite (normally `http://localhost:5173`). The demo includes playback and timeline controls, the repository's Renatus, Aspire, and Net0 showcase maps, and an **Open .osu** button for previewing a local beatmap file.
+Open the URL printed by Vite (normally `http://localhost:5173`). The demo includes playback controls, a hitobject timeline, the repository's Renatus, Aspire, and Net0 showcase maps, and an **Open .osu** button for previewing a local beatmap file. Drag or scroll the hitobject timeline to seek; use the zoom buttons or Ctrl/⌘ + scroll to zoom. Choose **Beat snap** to change ruler subdivisions from `1/1` through `1/16`, including triplets. A focused timeline also supports arrow keys, Home/End, and +/−.
 
 To create a production build of the demo:
 

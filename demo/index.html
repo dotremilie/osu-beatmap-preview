@@ -14,8 +14,9 @@
     </header>
 
     <section class="demo-card" aria-label="Beatmap renderer demo">
-        <div class="stage">
+        <div id="preview-stage" class="stage">
             <canvas id="preview" aria-label="Rendered osu! playfield"></canvas>
+            <button id="fullscreen" class="fullscreen-button" type="button" aria-controls="preview-stage" aria-pressed="false">Fullscreen</button>
         </div>
 
         <div class="info-row">
@@ -41,6 +42,39 @@
                 </label>
             </div>
         </div>
+
+        <section class="hitobject-timeline" aria-label="Hitobject timeline">
+            <div class="timeline-toolbar">
+                <span class="label">Hitobject timeline</span>
+                <div class="timeline-controls">
+                    <label class="object-size">
+                        <span>Object radius</span>
+                        <input id="object-radius" type="number" min="1" max="64" step="1" value="16">
+                    </label>
+                    <label class="beat-snap">
+                        <span>Beat snap</span>
+                        <select id="beat-snap">
+                            <option value="1">1/1</option>
+                            <option value="2">1/2</option>
+                            <option value="3">1/3</option>
+                            <option value="4" selected>1/4</option>
+                            <option value="6">1/6</option>
+                            <option value="8">1/8</option>
+                            <option value="12">1/12</option>
+                            <option value="16">1/16</option>
+                        </select>
+                    </label>
+                    <div class="zoom-controls" role="group" aria-label="Timeline zoom">
+                        <button id="zoom-out" class="zoom-button" type="button" aria-label="Zoom out timeline">−</button>
+                        <button id="zoom-in" class="zoom-button" type="button" aria-label="Zoom in timeline">+</button>
+                    </div>
+                </div>
+            </div>
+            <canvas id="hitobject-timeline" tabindex="0" role="slider" aria-label="Hitobject timeline position"
+                    aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="16000" aria-valuenow="0"
+                    aria-describedby="timeline-help"></canvas>
+            <p id="timeline-help" class="timeline-help">Drag or scroll to seek · Ctrl / ⌘ + scroll to zoom · Arrow keys to seek, + / − to zoom</p>
+        </section>
 
         <div class="transport">
             <button id="play" class="play-button" type="button" aria-label="Pause preview">Pause</button>

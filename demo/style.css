@@ -70,6 +70,7 @@ select,
 }
 
 .stage {
+    position: relative;
     display: grid;
     min-height: 360px;
     place-items: center;
@@ -79,8 +80,24 @@ select,
 
 .stage canvas {
     display: block;
-    width: min(100%, 800px) !important;
-    height: auto !important;
+}
+
+.stage:fullscreen {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+.fullscreen-button {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    padding: 7px 11px;
+}
+
+.fullscreen-button:disabled {
+    opacity: .4;
+    cursor: default;
 }
 
 .info-row {
@@ -134,9 +151,13 @@ h1 {
 }
 
 .map-picker select,
+.beat-snap select,
+.object-size input,
 .file-button,
 .play-button,
-.restart-button {
+.restart-button,
+.fullscreen-button,
+.zoom-button {
     border: 1px solid #39343f;
     border-radius: 7px;
     background: #1d1922;
@@ -148,8 +169,12 @@ h1 {
 }
 
 .map-picker select:hover,
+.beat-snap select:hover,
+.object-size input:hover,
 .file-button:hover,
-.restart-button:hover {
+.restart-button:hover,
+.fullscreen-button:hover:not(:disabled),
+.zoom-button:hover:not(:disabled) {
     border-color: #5c5363;
     background: #24202a;
     color: #fff;
@@ -177,9 +202,12 @@ h1 {
 }
 
 .map-picker select:focus-visible,
+.beat-snap select:focus-visible,
+.object-size input:focus-visible,
 .file-button:focus-within,
 button:focus-visible,
-.timeline:focus-visible {
+.timeline:focus-visible,
+.hitobject-timeline canvas:focus-visible {
     outline: 2px solid #ff8fc9;
     outline-offset: 2px;
 }
@@ -218,6 +246,85 @@ button:focus-visible,
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     text-align: center;
+}
+
+.hitobject-timeline {
+    padding: 0 22px 6px;
+}
+
+.timeline-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 0;
+}
+
+.timeline-toolbar .label {
+    margin: 0;
+}
+
+.timeline-controls,
+.beat-snap,
+.object-size,
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.timeline-controls {
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.beat-snap,
+.object-size {
+    color: #aaa4ae;
+    font-size: 11px;
+}
+
+.beat-snap select {
+    min-width: 60px;
+    padding: 7px 4px 7px 8px;
+}
+
+.object-size input {
+    width: 58px;
+    padding: 7px 4px 7px 8px;
+}
+
+.zoom-button {
+    width: 36px;
+    padding: 4px;
+    font-size: 18px;
+}
+
+.zoom-button:disabled {
+    opacity: .4;
+    cursor: default;
+}
+
+.hitobject-timeline canvas {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 7px;
+    background: #100d14;
+    cursor: grab;
+    touch-action: none;
+}
+
+.hitobject-timeline canvas[data-dragging="true"] {
+    cursor: grabbing;
+}
+
+.timeline-help {
+    margin: 8px 0 0;
+    color: #88828f;
+    font-size: 11px;
+    line-height: 1.5;
 }
 
 .timeline-label,
@@ -327,6 +434,16 @@ kbd {
     .transport {
         grid-template-columns: 54px 1fr 54px;
         padding: 10px 16px 16px;
+    }
+
+    .hitobject-timeline {
+        padding-inline: 16px;
+    }
+
+    .timeline-controls {
+        width: 100%;
+        justify-content: space-between;
+        gap: 8px;
     }
 
     .time {
