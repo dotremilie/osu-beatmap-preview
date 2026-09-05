@@ -30,6 +30,30 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 npm install osu-beatmap-preview
 ```
 
+## Migrating from 0.2.0
+
+Version 0.3.0 includes breaking API changes. Update these imports and options:
+
+| 0.2.0 | 0.3.0 |
+| --- | --- |
+| `StandardBeatmapPreview` | `StandardBeatmapPreviewer` |
+| `StandardRenderer` | `StandardBeatmapRenderer` |
+| `PlayfieldOffset` | `Offset` |
+| `BeatmapPreviewOptions.playfieldOffset` | `BeatmapPreviewOptions.offset` |
+
+```ts
+import {StandardBeatmapPreviewer, type Offset} from "osu-beatmap-preview";
+
+const offset: Offset = {x: 64, y: 48};
+const preview = new StandardBeatmapPreviewer(canvas, {offset});
+```
+
+The standard preview now scales and centers its 640 × 480 logical playfield to fit the canvas. Custom offsets are measured in logical playfield coordinates and scale with it. If your application previously compensated for a fixed-size playfield, update that sizing logic to use the previewer's `resize()` method.
+
+The existing loading and rendering methods remain available. When integrating `StandardBeatmapRenderer` directly, call `dispose()` when finished to release its cached rendering surfaces; previewers handle this lifecycle automatically.
+
+If you subclassed `StandardRenderer` to override its protected `DEFAULT_COLORS` getter, set `beatmap.colors.comboColors` on the input map before loading it or constructing the renderer instead.
+
 ## Usage
 
 Load the bundled Torus font CSS before rendering if you want combo numbers to match the default renderer:
