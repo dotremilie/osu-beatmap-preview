@@ -47,8 +47,14 @@ describe("renderer visibility selection", () => {
             const renderer = new StandardBeatmapRenderer(createContext(), beatmap);
             const times = beatmap.hitObjects.flatMap(object => {
                 const start = object.startTime - object.timePreempt;
-                const end = (object instanceof Slider || object instanceof Spinner ? object.endTime : object.startTime) + 150;
-                return [end + 0.001, start - 0.001, start, end, start + 0.001, end - 0.001];
+                const hitDuration = object instanceof Spinner
+                    ? Math.max(240, mods & ModBitwise.Hidden ? object.timePreempt * 0.3 : 0)
+                    : 150;
+                const end = (object instanceof Slider || object instanceof Spinner ? object.endTime : object.startTime)
+                    + hitDuration;
+                const boundaries = [end + 0.001, start - 0.001, start, end, start + 0.001, end - 0.001];
+                if (object instanceof Spinner) boundaries.push(...[150, 239.999, 240, 240.001].map(offset => object.endTime + offset));
+                return boundaries;
             });
             times.push(25000, 6000, 1000, 50000, -10000);
 
@@ -59,7 +65,10 @@ describe("renderer visibility selection", () => {
                 const renderedTime = playbackTime * beatmap.difficulty.clockRate;
                 const visible = beatmap.hitObjects.filter(object =>
                     renderedTime >= object.startTime - object.timePreempt
-                    && renderedTime <= (object instanceof Slider || object instanceof Spinner ? object.endTime : object.startTime) + 150,
+                    && renderedTime <= (object instanceof Slider || object instanceof Spinner ? object.endTime : object.startTime)
+                        + (object instanceof Spinner
+                            ? Math.max(240, mods & ModBitwise.Hidden ? object.timePreempt * 0.3 : 0)
+                            : 150),
                 ).reverse();
 
                 renderer.render(playbackTime);

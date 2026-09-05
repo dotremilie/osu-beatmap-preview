@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Argon-style spinner disc, rotating ticks, side progress arcs, centre rings, and glow, with deterministic animations for seeking.
+
+### Fixed
+
+- Keep spinners visible for their full fade-out, including the longer Hidden fade.
+
 ## 0.2.0 - 2026-07-22
 
 ### Added

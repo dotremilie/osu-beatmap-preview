@@ -11,6 +11,7 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 - Aspire maps are supported.
 - Catmull sliders are rendered correctly.
 - Argon-style slider ball, follow circle, repeats, and score-point ticks.
+- Argon-style spinners with rotating ticks, progress arcs, glow, and entrance/completion animations. Spinner progress is driven by elapsed time for preview playback.
 - Multiple previews can be created at once without noticeable performance drawbacks.
 - Canvas-first API with no React, browser extension, or UI dependency.
 - osu!standard mod bitmasks can be passed when loading a beatmap.
