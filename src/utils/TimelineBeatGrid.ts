@@ -20,8 +20,16 @@ export function getTimelineTicks(
     const ticks: TimelineTick[] = [];
     const points = timingPoints.length ? timingPoints : [DEFAULT_TIMING_POINT];
 
-    for (let index = 0; index < points.length; index++) {
+    let low = 0;
+    let high = points.length;
+    while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (points[middle].startTime <= startTime) low = middle + 1;
+        else high = middle;
+    }
+    for (let index = Math.max(0, low - 1); index < points.length; index++) {
         const point = points[index];
+        if (index > 0 && point.startTime > endTime) break;
         const nextTime = points[index + 1]?.startTime ?? Infinity;
         const segmentStart = index === 0 ? startTime : Math.max(startTime, point.startTime);
         const segmentEnd = Math.min(endTime, nextTime);
@@ -52,12 +60,19 @@ export function getTimelineTicks(
             const time = point.startTime + tickIndex * interval;
             if (time > segmentEnd + 1e-7 || time >= nextTime - 1e-7) break;
 
-            ticks.push({
+            const tick: TimelineTick = {
                 time,
                 kind: tickIndex % ticksPerBar === 0 ? "bar"
                     : tickIndex % beatSnapDivisor === 0 ? "beat" : "subdivision",
                 divisor: TICK_DIVISORS.find(divisor => (tickIndex % beatSnapDivisor * divisor) % beatSnapDivisor === 0) ?? 0,
-            });
+            };
+            const previous = ticks[ticks.length - 1];
+            if (previous && tick.time - previous.time < minimumInterval - 1e-7) {
+                const priority = {bar: 2, beat: 1, subdivision: 0};
+                if (priority[tick.kind] > priority[previous.kind]) ticks[ticks.length - 1] = tick;
+            } else {
+                ticks.push(tick);
+            }
         }
     }
 

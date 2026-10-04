@@ -1,18 +1,10 @@
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {Slider, SliderTail} from "osu-standard-stable";
-import {DrawableSlider} from "./DrawableSlider";
+import type {Color4} from "osu-classes";
 import {CIRCLE_BORDER_WIDTH} from "../../renderers/StandardBeatmapRenderer";
 
 export class DrawableSliderTail extends DrawableStandardHitObject<SliderTail> {
-    get slider(): Slider {
-        return this.drawableSlider?.hitObject;
-    }
-
-    protected get drawableSlider() {
-        return this.parentHitObject as DrawableSlider;
-    }
-
-    constructor(hitObject: SliderTail) {
+    constructor(hitObject: SliderTail, private readonly slider: Slider, private readonly color: Color4) {
         super(hitObject);
     }
 
@@ -24,7 +16,7 @@ export class DrawableSliderTail extends DrawableStandardHitObject<SliderTail> {
 
         ctx.lineWidth = radius * CIRCLE_BORDER_WIDTH;
         ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
-        ctx.fillStyle = `rgba(${this.drawableSlider.color.red},${this.drawableSlider.color.green},${this.drawableSlider.color.blue},${opacity})`;
+        ctx.fillStyle = `rgba(${this.color.red},${this.color.green},${this.color.blue},${opacity})`;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();

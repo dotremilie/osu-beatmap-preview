@@ -1,7 +1,7 @@
 import {Spinner} from "osu-standard-stable";
 import MathUtils from "../../utils/MathUtils";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
-import {DrawableSpinnerDisc} from "./DrawableSpinnerDisc";
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 
 /**
  * Canvas adaptation of osu!lazer's Argon spinner.
@@ -14,9 +14,7 @@ export class DrawableSpinner extends DrawableStandardHitObject<Spinner> {
     private static readonly FADE_OUT_DURATION = 240;
     private static readonly END_SCALE_DURATION = 320;
 
-    private readonly disc = new DrawableSpinnerDisc();
-
-    constructor(hitObject: Spinner, hidden = false) {
+    constructor(hitObject: Spinner, hidden = false, private readonly appearance: StandardAppearance = new DefaultAppearance()) {
         super(hitObject, hidden);
         this.HIT_DURATION = hidden
             ? Math.max(DrawableSpinner.FADE_OUT_DURATION,
@@ -36,16 +34,22 @@ export class DrawableSpinner extends DrawableStandardHitObject<Spinner> {
         const completion = 1 - Math.pow(0.5, Math.max(0, time - endTime) / 40);
 
         ctx.save();
-        ctx.translate(stackedStartPosition.x, stackedStartPosition.y);
-        ctx.globalAlpha *= opacity;
+        try {
+            ctx.translate(stackedStartPosition.x, stackedStartPosition.y);
+            ctx.globalAlpha *= opacity;
 
-        ctx.save();
-        ctx.scale(discScale, discScale);
-        this.disc.draw(ctx, this.progress(time), this.rotation(time), tracking, completion);
-        ctx.restore();
+            ctx.save();
+            try {
+                ctx.scale(discScale, discScale);
+                this.appearance.spinnerDisc(ctx, this.progress(time), this.rotation(time), tracking, completion);
+            } finally {
+                ctx.restore();
+            }
 
-        this.drawCentre(ctx, this.entranceScale(Math.min(time, endTime), 0.3, 0.8), tracking);
-        ctx.restore();
+            this.appearance.spinnerCentre(ctx, this.entranceScale(Math.min(time, endTime), 0.3, 0.8), tracking);
+        } finally {
+            ctx.restore();
+        }
     }
 
     opacity(time: number): number {
@@ -114,20 +118,4 @@ export class DrawableSpinner extends DrawableStandardHitObject<Spinner> {
         return MathUtils.lerp(1 - Math.pow(1 - progress, 5), initialScale, fullScale);
     }
 
-    private drawCentre(ctx: CanvasRenderingContext2D, scale: number, tracking: number): void {
-        const diameter = MathUtils.lerp(tracking, 80, 40);
-
-        ctx.save();
-        ctx.scale(scale, scale);
-        ctx.strokeStyle = "white";
-
-        for (const [size, thickness] of [[diameter * 0.8, 10], [diameter, 3]]) {
-            ctx.beginPath();
-            ctx.arc(0, 0, Math.max(0, (size - thickness) / 2), 0, Math.PI * 2);
-            ctx.lineWidth = thickness;
-            ctx.stroke();
-        }
-
-        ctx.restore();
-    }
 }

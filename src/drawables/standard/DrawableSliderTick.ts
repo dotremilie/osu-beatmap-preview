@@ -1,6 +1,7 @@
-import type {Slider, SliderTick} from "osu-standard-stable";
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
+import type {SliderTick} from "osu-standard-stable";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
-import {DrawableSlider} from "./DrawableSlider";
+import type {Color4} from "osu-classes";
 
 /** Canvas implementation of osu!'s Argon slider score point. */
 export class DrawableSliderTick extends DrawableStandardHitObject<SliderTick> {
@@ -9,12 +10,8 @@ export class DrawableSliderTick extends DrawableStandardHitObject<SliderTick> {
     static readonly ARGON_SIZE = 12;
     static readonly ARGON_BORDER_THICKNESS = 3;
 
-    get slider(): Slider {
-        return this.drawableSlider.hitObject;
-    }
-
-    protected get drawableSlider(): DrawableSlider {
-        return this.parentHitObject as DrawableSlider;
+    constructor(hitObject: SliderTick, private readonly color: Color4, hidden = false, private readonly appearance: StandardAppearance = new DefaultAppearance()) {
+        super(hitObject, hidden);
     }
 
     draw(ctx: CanvasRenderingContext2D, time: number): void {
@@ -28,20 +25,7 @@ export class DrawableSliderTick extends DrawableStandardHitObject<SliderTick> {
         const diameter = DrawableSliderTick.ARGON_SIZE * objectScale * scale;
         const borderThickness = DrawableSliderTick.ARGON_BORDER_THICKNESS * objectScale * scale;
 
-        ctx.save();
-        ctx.globalAlpha *= opacity;
-        ctx.beginPath();
-        ctx.arc(
-            stackedStartPosition.x,
-            stackedStartPosition.y,
-            Math.max(0, (diameter - borderThickness) / 2),
-            0,
-            Math.PI * 2,
-        );
-        ctx.lineWidth = borderThickness;
-        ctx.strokeStyle = `rgb(${this.drawableSlider.color.red},${this.drawableSlider.color.green},${this.drawableSlider.color.blue})`;
-        ctx.stroke();
-        ctx.restore();
+        this.appearance.tick(ctx, stackedStartPosition, diameter, borderThickness, this.color, opacity);
     }
 
     opacity(time: number): number {

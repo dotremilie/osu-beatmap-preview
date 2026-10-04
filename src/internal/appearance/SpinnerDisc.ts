@@ -50,32 +50,37 @@ export class DrawableSpinnerDisc {
 
     private drawTicks(ctx: CanvasRenderingContext2D, rotation: number): void {
         ctx.save();
-        ctx.rotate(rotation);
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-        const transform = ctx.getTransform();
-        ctx.shadowColor = "rgba(255,255,255,0.2)";
-        // Canvas shadows use device pixels rather than the current transform.
-        ctx.shadowBlur = 30 * Math.hypot(transform.a, transform.b);
+        try {
+            ctx.rotate(rotation);
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            const transform = ctx.getTransform();
+            ctx.shadowColor = "rgba(255,255,255,0.2)";
+            // Canvas shadows use device pixels rather than the current transform.
+            ctx.shadowBlur = 30 * Math.hypot(transform.a, transform.b);
 
-        for (const tick of DrawableSpinnerDisc.TICKS) {
-            ctx.save();
-            ctx.translate(tick.x, tick.y);
-            ctx.rotate(tick.rotation);
+            for (const tick of DrawableSpinnerDisc.TICKS) {
+                ctx.save();
+                try {
+                    ctx.translate(tick.x, tick.y);
+                    ctx.rotate(tick.rotation);
 
-            // A 30x5 hollow capsule, with an inward 2px border.
-            ctx.beginPath();
-            ctx.moveTo(-12.5, -1.5);
-            ctx.lineTo(12.5, -1.5);
-            ctx.arc(12.5, 0, 1.5, -Math.PI / 2, Math.PI / 2);
-            ctx.lineTo(-12.5, 1.5);
-            ctx.arc(-12.5, 0, 1.5, Math.PI / 2, Math.PI * 1.5);
-            ctx.closePath();
-            ctx.stroke();
+                    // A 30x5 hollow capsule, with an inward 2px border.
+                    ctx.beginPath();
+                    ctx.moveTo(-12.5, -1.5);
+                    ctx.lineTo(12.5, -1.5);
+                    ctx.arc(12.5, 0, 1.5, -Math.PI / 2, Math.PI / 2);
+                    ctx.lineTo(-12.5, 1.5);
+                    ctx.arc(-12.5, 0, 1.5, Math.PI / 2, Math.PI * 1.5);
+                    ctx.closePath();
+                    ctx.stroke();
+                } finally {
+                    ctx.restore();
+                }
+            }
+        } finally {
             ctx.restore();
         }
-
-        ctx.restore();
     }
 
     private drawProgress(ctx: CanvasRenderingContext2D, progress: number, completion: number): void {
@@ -84,30 +89,32 @@ export class DrawableSpinnerDisc {
         const sweep = 0.15 * Math.PI * 2;
 
         ctx.save();
-        ctx.globalAlpha *= 1 - completion;
+        try {
+            ctx.globalAlpha *= 1 - completion;
 
-        for (const angle of [0, Math.PI]) {
-            if (progress < 1) {
-                ctx.strokeStyle = "rgba(255,255,255,0.25)";
-                this.drawArc(ctx, radius, thickness, angle, sweep);
+            for (const angle of [0, Math.PI]) {
+                if (progress < 1) {
+                    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+                    this.drawArc(ctx, radius, thickness, angle, sweep);
+                }
+
+                if (progress <= 0) continue;
+
+                const x = Math.cos(angle) * (radius - thickness / 2);
+                const glow = ctx.createRadialGradient(x, 0, 0, x, 0, 70);
+                glow.addColorStop(0, `rgba(171,255,255,${0.5 * progress})`);
+                glow.addColorStop(1, "rgba(171,255,255,0)");
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(x, 0, 70, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = "white";
+                this.drawArc(ctx, radius, thickness, angle, sweep * progress * (1 - completion));
             }
-
-            if (progress <= 0) continue;
-
-            const x = Math.cos(angle) * (radius - thickness / 2);
-            const glow = ctx.createRadialGradient(x, 0, 0, x, 0, 70);
-            glow.addColorStop(0, `rgba(171,255,255,${0.5 * progress})`);
-            glow.addColorStop(1, "rgba(171,255,255,0)");
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(x, 0, 70, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = "white";
-            this.drawArc(ctx, radius, thickness, angle, sweep * progress * (1 - completion));
+        } finally {
+            ctx.restore();
         }
-
-        ctx.restore();
     }
 
     private drawArc(

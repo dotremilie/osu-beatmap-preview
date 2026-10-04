@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Built-in Argon follow points behind standard hitobjects, respecting combo boundaries, stacked slider endpoints, clock-rate mods, and arbitrary seeking.
+- Optional `cursorTrail` setting on standard playfield previewers and renderers, with a separate demo toggle.
+- Opt-in Argon autoplay cursor and bounded trail for standard playfield views, with runtime toggling and deterministic seeking. Enable with `autoplay: true`; the demo enables it by default.
+
+### Breaking changes
+
+- Standard-specific `BeatmapLoader` no longer accepts an injected ruleset. Loading returns an opaque `PreparedBeatmap` with read-only `beatmap` and `clockRate` properties.
+- Prepared-map attachment and direct renderer constructors require authentic library handles. Direct renderer `getBeatmap` is renamed to `beatmap`.
+- Canvas resizing rejects non-positive or non-finite dimensions and device pixel ratios.
+
+### Changed
+
+- Separate canvas lifecycle, preparation, projections, animation evaluation, and procedural appearance; construct complete drawable collections without virtual initialization from base constructors.
+- Move timeline composition into an internal ruleset-neutral renderer. Extension contracts remain internal.
+- Own raster caches and appearance independently per renderer; restore nested canvas state on painting errors and preserve resources across identical resizes.
+- Coalesce demo updates into one frame scheduler, skip hidden fullscreen timelines, update stable controls on state changes, and lazy-load showcase maps with stale-request protection and explicit teardown.
+
+### Fixed
+
+- Match Argon's cursor trail with small white additive stamps, spatial interpolation, and its skin-specific fade exponent.
+- Bound ruler density across timing-point changes and search directly for the first visible timing segment.
+- Skip invisible circle and approach-circle drawing work.
+- Release failed raster surfaces and prevent disposed direct renderers from reallocating resources.
+
+See the README migration guide for examples. Version and release metadata are unchanged.
+
 ## 0.3.0 - 2026-09-05
 
 ### Breaking changes

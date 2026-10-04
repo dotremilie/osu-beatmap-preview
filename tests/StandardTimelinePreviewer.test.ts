@@ -7,6 +7,12 @@ import {DrawableCircle} from "../src/drawables/standard/DrawableCircle";
 import {DrawableSliderBody} from "../src/drawables/standard/DrawableSliderBody";
 import {DrawableSliderPath} from "../src/drawables/standard/DrawableSliderPath";
 
+// Follow-point painting is exercised separately with a complete canvas mock.
+vi.mock("../src/internal/appearance/DrawableFollowPoint", () => ({default: class {
+    draw(): void {}
+    dispose(): void {}
+}}));
+
 const BEATMAP_TEXT = readFileSync(new URL("./fixtures/timeline.osu", import.meta.url), "utf8");
 
 function createContext() {
@@ -111,7 +117,7 @@ describe("StandardTimelinePreviewer", () => {
     it("rasterizes slider bodies at the drawing scale while preserving their logical bounds", () => {
         const {canvas, context, bufferContext} = createCanvas();
         const preview = new StandardBeatmapPreviewer(canvas);
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT);
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT).beatmap;
         const slider = beatmap.hitObjects.find(object => object instanceof Slider) as Slider;
         const color = beatmap.colors.comboColors[0];
         const path = new DrawableSliderPath(slider.path, color, color);
@@ -199,7 +205,7 @@ describe("StandardTimelinePreviewer", () => {
 
         try {
             const {context, preview} = createTimeline(30_000);
-            const beatmap = preview.loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.Hidden});
+            const beatmap = preview.loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.Hidden}).beatmap;
             const geometry = () => beatmap.hitObjects.map(object => ({
                 startTime: object.startTime,
                 position: object.stackedStartPosition,
@@ -299,7 +305,7 @@ describe("StandardTimelinePreviewer", () => {
         const beatmap = preview.loadBeatmapText(
             emptyBeatmapWithTiming("250,500,4,1,0,100,1,0"),
             {mods: ModBitwise.DoubleTime},
-        );
+        ).beatmap;
         preview.render(750 / beatmap.difficulty.clockRate - beatmap.general.previewTime);
 
         const ticks = rulerTicks(context);
@@ -321,7 +327,7 @@ describe("StandardTimelinePreviewer", () => {
         ]));
         expect(context.moveTo).toHaveBeenCalledWith(400, 0);
         expect(context.lineTo).toHaveBeenCalledWith(400, 120);
-        expect(context.translate).toHaveBeenCalledWith(0, 0);
+        expect(context.translate).not.toHaveBeenCalled();
 
         const clickedTime = preview.timeAtPosition(500, 1000);
         expect(clickedTime).toBe(1500);
@@ -375,7 +381,7 @@ describe("StandardTimelinePreviewer", () => {
 
     it("keeps a long slider visible when both endpoints are outside the window", () => {
         const {context, preview} = createTimeline(1000);
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT);
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT).beatmap;
         const slider = beatmap.hitObjects.find(object => object instanceof Slider);
 
         expect(slider).toBeInstanceOf(Slider);
@@ -433,7 +439,7 @@ describe("StandardTimelinePreviewer", () => {
 
     it("renders a long spinner duration and label while its endpoints are offscreen", () => {
         const {context, preview} = createTimeline(1000);
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT);
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT).beatmap;
         expect(beatmap.hitObjects.some(object => object instanceof Spinner)).toBe(true);
         preview.render(25_000);
 
@@ -483,7 +489,7 @@ describe("StandardTimelinePreviewer", () => {
         [ModBitwise.HalfTime, 0.75],
     ])("matches playback time for mod bitmask %s", (mods, clockRate) => {
         const {context, preview} = createTimeline();
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT, {mods});
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT, {mods}).beatmap;
 
         expect(beatmap.difficulty.clockRate).toBe(clockRate);
         preview.render(1000 / clockRate);
@@ -501,7 +507,7 @@ describe("StandardTimelinePreviewer", () => {
             useBeatmapPreviewTime: true,
             devicePixelRatio: 1,
         });
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime});
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime}).beatmap;
         const currentTime = 1500 / beatmap.difficulty.clockRate - beatmap.general.previewTime;
         preview.render(currentTime);
 
@@ -560,7 +566,7 @@ describe("StandardTimelinePreviewer", () => {
 describe("StandardBeatmapPreviewer canvas compatibility", () => {
     it("centers combo text using its visible glyph bounds at small and regular circle sizes", () => {
         const {context, preview} = createTimeline();
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT);
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT).beatmap;
         const circle = new DrawableCircle(beatmap.hitObjects[0], beatmap.colors.comboColors[0]);
 
         for (const radius of [13, 40]) {
@@ -582,7 +588,7 @@ describe("StandardBeatmapPreviewer canvas compatibility", () => {
 
     it("retains the circle's playback position, size and fade when delegating to shared drawing", () => {
         const {context, preview} = createTimeline();
-        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT);
+        const beatmap = preview.loadBeatmapText(BEATMAP_TEXT).beatmap;
         const circle = new DrawableCircle(beatmap.hitObjects[0], beatmap.colors.comboColors[0]);
         const drawAt = vi.spyOn(circle, "drawAt");
         const time = circle.hitObject.startTime + 75;

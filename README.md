@@ -12,6 +12,7 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 - Catmull sliders are rendered correctly.
 - Argon-style slider ball, follow circle, repeats, and score-point ticks.
 - Argon-style spinners with rotating ticks, progress arcs, glow, and entrance/completion animations. Spinner progress is driven by elapsed time for preview playback.
+- Animated Argon follow points between consecutive objects in the same combo, with stacked slider endpoints and deterministic seeking. They are always enabled in standard playfield views, independently of autoplay.
 - Multiple previews can be created at once without noticeable performance drawbacks.
 - Canvas-first API with no React, browser extension, or UI dependency.
 - osu!standard mod bitmasks can be passed when loading a beatmap.
@@ -29,6 +30,54 @@ The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for mos
 ```bash
 npm install osu-beatmap-preview
 ```
+
+## Autoplay cursor
+
+Standard playfield previews and direct renderers accept `autoplay: true` as an opt-in constructor option:
+
+```ts
+const preview = new StandardBeatmapPreviewer(canvas, {autoplay: true});
+const prepared = preview.loadBeatmapText(osuText);
+preview.render(1000);
+preview.cursorTrail = false; // Hide the trail while keeping the autoplay cursor.
+preview.autoplay = false; // Takes effect on the next render; persists across map loads.
+
+const renderer = new StandardBeatmapRenderer(context, prepared, {autoplay: true});
+renderer.render(1000);
+renderer.dispose();
+```
+
+The `cursorTrail` constructor option and getter/setter are available on both classes. It defaults to `true`; changes take effect on the next render and previewer settings persist across map loads. Use `{autoplay: true, cursorTrail: false}` for a cursor without a trail.
+
+The procedural Argon cursor follows osu! autoplay movement, tracks repeated sliders, and circles spinners. Its trail and press animations support arbitrary seeking, preview offsets, and clock-rate mods. Autoplay supplies visual cursor movement; existing successful-hit animations remain unchanged. No scoring, manual input, audio, or replay import is added. Timeline views have no cursor option. See [ROADMAP.md](ROADMAP.md) for the subsequent skinning work.
+
+## Migrating from 0.3.0 (unreleased)
+
+Beatmap preparation now returns an opaque `PreparedBeatmap` handle. Construct `BeatmapLoader` without a ruleset argument, attach the handle to views, and read metadata through `prepared.beatmap`:
+
+```ts
+import {BeatmapLoader, StandardBeatmapRenderer} from "osu-beatmap-preview";
+
+const loader = new BeatmapLoader();
+const prepared = loader.loadBeatmapText(osuText, {mods: 0});
+preview.loadPreparedBeatmap(prepared);
+timeline.loadPreparedBeatmap(prepared);
+console.log(prepared.beatmap.metadata.title, prepared.clockRate);
+
+// Direct renderers also receive the handle.
+const renderer = new StandardBeatmapRenderer(canvas.getContext("2d")!, prepared);
+console.log(renderer.beatmap);
+renderer.dispose();
+```
+
+- Loader and previewer loading methods return the handle rather than the underlying map.
+- `loadPreparedBeatmap()` and direct renderer constructors accept only handles returned by this library; raw maps and copied handles are rejected.
+- Previewer `beatmap` still exposes the underlying read-only model. Direct renderer `getBeatmap` is renamed to `beatmap`.
+- `loadBeatmap()` accepts a decoded map or an existing handle; it prepares a new handle from the pristine source and replaces mods rather than compounding them.
+- `resize()` requires positive finite dimensions and DPR. Identical resizes preserve raster caches.
+- Playback arguments remain playback milliseconds. With `useBeatmapPreviewTime`, the map's preview offset is added in playback milliseconds before applying clock rate, preserving 0.3.0 semantics.
+
+Consumers configure built-in standard views. Ruleset adapters, projections, appearances, and drawable models are internal; custom ruleset/model extension is not a supported API. Package deep imports remain blocked by the exports map.
 
 ## Migrating from 0.2.0
 
@@ -96,7 +145,7 @@ The standard preview fits and centers its 640 × 480 logical playfield within th
 
 The renderer accepts an existing `HTMLCanvasElement`. It does not query the DOM, fetch beatmaps, manage playback time, or provide UI controls.
 
-Both renderers select overlapping hitobject intervals before drawing. Slider body rasters use a per-canvas LRU cache limited to 16,777,216 pixels (64 MiB of nominal RGBA storage) and 256 entries, plus one shared scratch surface for individual rasters larger than that budget. Unchanged bodies reuse their pixels; geometry, appearance, clipping, and resolution changes invalidate them. Resizing, replacing a map, or disposing a view releases its cached surfaces. Direct renderer users should also call `dispose()` when finished.
+Both renderers select overlapping hitobject intervals before drawing. Slider body rasters use a per-renderer LRU cache limited to 16,777,216 pixels (64 MiB of nominal RGBA storage) and 256 entries, plus one shared scratch surface for individual rasters larger than that budget. Unchanged bodies reuse their pixels; geometry, appearance, clipping, and resolution changes invalidate them. Resizing, replacing a map, or disposing a view releases its cached surfaces. Direct renderer users should also call `dispose()` when finished.
 
 ### Sharing a prepared beatmap
 
@@ -104,19 +153,19 @@ Both previewers work independently with `loadBeatmapText()` or `loadBeatmap()`. 
 
 ```ts
 import {BeatmapLoader} from "osu-beatmap-preview";
-import {StandardRuleset} from "osu-standard-stable";
-
-const loader = new BeatmapLoader(new StandardRuleset());
-const beatmap = loader.loadBeatmapText(osuText, {mods: 0});
-preview.loadPreparedBeatmap(beatmap);
-timeline.loadPreparedBeatmap(beatmap);
+const loader = new BeatmapLoader();
+const prepared = loader.loadBeatmapText(osuText, {mods: 0});
+preview.loadPreparedBeatmap(prepared);
+timeline.loadPreparedBeatmap(prepared);
 ```
 
-`BeatmapLoader` is ruleset-agnostic: it uses the supplied ruleset for preparation and infers that ruleset's return type. Its `loadBeatmap(beatmap, {mods})` method also accepts an existing decoded map. It applies mods and generates hitobjects without creating a canvas. Preparation operates on a clone of the decoded source so mods cannot mutate the source or another prepared map. Replacing mods starts from that source to avoid compounding changes. `loadPreparedBeatmap()` attaches its result without repeating that work; it accepts only the per-view `useBeatmapPreviewTime` option. Resizing, zooming, playback, and rendering resources belong to each view. Disposing or replacing one view does not dispose the shared beatmap or the other view.
+`BeatmapLoader` prepares osu!standard maps without creating a canvas. Its `loadBeatmap(beatmap, {mods})` method accepts a decoded map or a prepared handle. Preparation operates on a clone of the original decoded source so mods cannot mutate another attached map. Replacing mods starts from that source.
 
-Treat prepared beatmaps and their nested data as read-only while attached. To change mods or edit geometry, prepare and attach a new map. The dependency may populate internal geometry caches lazily, so prepared maps should not be deep-frozen. A map returned by either previewer's standalone loading methods can also be attached to another view using `loadPreparedBeatmap()`.
+`loadPreparedBeatmap()` attaches the exact handle without repeating preparation and accepts only the per-view `useBeatmapPreviewTime` option. Resizing, zooming, playback offsets, appearance, and raster resources belong to each view. Disposing one view does not dispose the shared map or another view, even when direct renderers share a canvas context.
 
-For mod changes on externally prepared maps, supply the original decoded map or ensure their `base` still contains the unmodified source. The loader cannot recover geometry already changed by an external conversion.
+Treat `prepared.beatmap` and its nested data as read-only while attached. To change mods or geometry, prepare and attach a new handle. The dependency populates internal geometry caches lazily, so nested models are not deep-frozen. Handles themselves are frozen and cannot be constructed, copied, or subclassed by consumers.
+
+Externally converted maps must retain an unmodified `base` to replace mods correctly. The loader cannot recover geometry already changed by an external conversion.
 
 ### Timeline preview
 

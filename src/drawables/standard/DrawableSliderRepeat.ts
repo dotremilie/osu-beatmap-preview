@@ -1,6 +1,7 @@
+import type {Color4} from "osu-classes";
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 import type {Slider, SliderRepeat} from "osu-standard-stable";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
-import {DrawableSlider} from "./DrawableSlider";
 
 /**
  * Canvas implementation of osu!'s Argon reverse arrow.
@@ -17,15 +18,7 @@ export class DrawableSliderRepeat extends DrawableStandardHitObject<SliderRepeat
 
     private readonly animDuration: number;
 
-    get slider(): Slider {
-        return this.drawableSlider.hitObject;
-    }
-
-    protected get drawableSlider(): DrawableSlider {
-        return this.parentHitObject as DrawableSlider;
-    }
-
-    constructor(hitObject: SliderRepeat, hidden = false) {
+    constructor(hitObject: SliderRepeat, private readonly slider: Slider, private readonly color: Color4, hidden = false, private readonly appearance: StandardAppearance = new DefaultAppearance()) {
         super(hitObject, hidden);
         this.animDuration = Math.min(300, hitObject.spanDuration);
     }
@@ -40,15 +33,17 @@ export class DrawableSliderRepeat extends DrawableStandardHitObject<SliderRepeat
         const hitScale = this.scale(time);
 
         ctx.save();
-        ctx.translate(stackedStartPosition.x, stackedStartPosition.y);
-        ctx.rotate(this.rotation());
-        ctx.scale(hitScale, hitScale);
-        ctx.globalAlpha *= opacity;
+        try {
+            ctx.translate(stackedStartPosition.x, stackedStartPosition.y);
+            ctx.rotate(this.rotation());
+            ctx.scale(hitScale, hitScale);
+            ctx.globalAlpha *= opacity;
 
-        this.drawEdgePiece(ctx, radius, pulse.sideOffset);
-        this.drawMainPiece(ctx, radius, pulse.mainScale);
-
-        ctx.restore();
+            this.appearance.repeatEdge(ctx, radius, pulse.sideOffset);
+            this.appearance.repeatMain(ctx, radius, pulse.mainScale, this.color);
+        } finally {
+            ctx.restore();
+        }
     }
 
     opacity(time: number): number {
@@ -131,70 +126,6 @@ export class DrawableSliderRepeat extends DrawableStandardHitObject<SliderRepeat
     }
 
     /** Draws the Argon repeat-edge-piece using canvas gradients. */
-    private drawEdgePiece(ctx: CanvasRenderingContext2D, radius: number, offsetProgress: number): void {
-        const borderThickness = radius * 4 / 58;
-        const gradientThickness = borderThickness * 2.5;
-        const edgeRadius = (radius * 2 - borderThickness * 4) / 2;
-        const sideOffset = -radius * 12 / 64 * offsetProgress;
-
-        ctx.save();
-        ctx.translate(sideOffset, 0);
-
-        // The source texture only contains the left side of the circular edge.
-        ctx.beginPath();
-        ctx.rect(-edgeRadius, -edgeRadius, edgeRadius, edgeRadius * 2);
-        ctx.clip();
-
-        ctx.beginPath();
-        ctx.arc(0, 0, edgeRadius, 0, Math.PI * 2);
-        const fill = ctx.createLinearGradient(-edgeRadius, 0, 0, 0);
-        fill.addColorStop(0, "rgba(255,255,255,0.5)");
-        fill.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = fill;
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(0, 0, edgeRadius - gradientThickness / 2, 0, Math.PI * 2);
-        ctx.lineWidth = gradientThickness;
-        ctx.strokeStyle = "rgba(255,255,255,1)";
-        ctx.stroke();
-
-        ctx.restore();
-    }
-
-    private drawMainPiece(ctx: CanvasRenderingContext2D, radius: number, scale: number): void {
-        const unit = radius / 64;
-        const width = 40 * unit * scale;
-        const height = 20 * unit * scale;
-        const lineHalfWidth = (width - height) / 2;
-
-        ctx.save();
-
-        // A round-capped line is the canvas equivalent of Argon's 40x20 Circle.
-        ctx.beginPath();
-        ctx.moveTo(-lineHalfWidth, 0);
-        ctx.lineTo(lineHalfWidth, 0);
-        ctx.lineCap = "round";
-        ctx.lineWidth = height;
-        ctx.strokeStyle = "rgba(255,255,255,1)";
-        ctx.stroke();
-
-        const iconScale = unit * scale;
-        ctx.lineWidth = 2.5 * iconScale;
-        ctx.lineCap = "butt";
-        ctx.lineJoin = "miter";
-        ctx.strokeStyle = `rgb(${this.drawableSlider.color.red / 4},${this.drawableSlider.color.green / 4},${this.drawableSlider.color.blue / 4})`;
-
-        for (const centreX of [-3, 3]) {
-            ctx.beginPath();
-            ctx.moveTo((centreX - 2.5) * iconScale, -5 * iconScale);
-            ctx.lineTo((centreX + 2.5) * iconScale, 0);
-            ctx.lineTo((centreX - 2.5) * iconScale, 5 * iconScale);
-            ctx.stroke();
-        }
-
-        ctx.restore();
-    }
 
     private static easeOut(progress: number): number {
         return progress * (2 - progress);

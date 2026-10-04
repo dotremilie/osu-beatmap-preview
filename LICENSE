@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2026 dotremilie
+Copyright (c) ppy Pty Ltd <contact@ppy.sh> (adapted autoplay, Argon cursor and follow-point code)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Third-party icon attribution
+
+The chevron-right vector outline is from Font Awesome Free 5.15.4 by
+Fonticons, Inc. (https://fontawesome.com). The icon is licensed under
+Creative Commons Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+Source: https://github.com/FortAwesome/Font-Awesome/blob/5.x/svgs/solid/chevron-right.svg
+The outline is unchanged; this library fits, colours and animates it for Argon follow points.

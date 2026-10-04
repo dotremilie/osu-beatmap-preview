@@ -3,13 +3,22 @@ import type {Vector2} from "osu-classes";
 type RasterCanvas = HTMLCanvasElement | OffscreenCanvas;
 export type SliderPathRasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-interface RasterRequest {
+export interface RasterRequest {
     width: number;
     height: number;
     pixelWidth: number;
     pixelHeight: number;
-    key: readonly (number | string)[];
+    appearance: RasterAppearance;
     points: readonly Vector2[];
+}
+
+export interface RasterAppearance {
+    x: number;
+    y: number;
+    pathRadius: number;
+    innerPathRadius: number;
+    borderStyle: string;
+    bodyStyle: string;
 }
 
 interface RasterState extends Omit<RasterRequest, "points"> {
@@ -25,25 +34,28 @@ interface RasterEntry {
 // Limit aggregate backing storage, including maps containing many large sliders.
 const MAX_CACHED_PIXELS = 16 * 1024 * 1024;
 const MAX_CACHED_ENTRIES = 256;
-const caches = new WeakMap<CanvasRenderingContext2D, SliderPathRasterCache>();
 
-class SliderPathRasterCache {
+export default class SliderPathRasterCache {
     private readonly entries = new Map<object, RasterEntry>();
     private cachedPixels = 0;
     private scratch?: RasterEntry;
 
-    constructor(private readonly ctx: CanvasRenderingContext2D) {}
-
-    get(owner: object, request: RasterRequest, paint: (ctx: SliderPathRasterContext) => void): RasterCanvas | null {
+    public get(ctx: CanvasRenderingContext2D, owner: object, request: RasterRequest, paint: (ctx: SliderPathRasterContext) => void): RasterCanvas | null {
         const pixels = request.pixelWidth * request.pixelHeight;
 
         // A single visible raster may exceed the cache budget in fullscreen.
-        // Keep only one such surface, shared by all sliders in this context.
+        // Keep only one such surface, shared by all sliders owned by this renderer.
         if (pixels > MAX_CACHED_PIXELS) {
             this.evict(owner);
-            this.scratch ??= this.createEntry() ?? undefined;
+            this.scratch ??= this.createEntry(ctx) ?? undefined;
             if (!this.scratch) return null;
-            return this.render(this.scratch, request, paint);
+            try {
+                return this.render(this.scratch, request, paint);
+            } catch (error) {
+                this.releaseEntry(this.scratch);
+                this.scratch = undefined;
+                throw error;
+            }
         }
 
         let entry = this.entries.get(owner);
@@ -56,7 +68,7 @@ class SliderPathRasterCache {
             this.evict(this.entries.keys().next().value!);
         }
 
-        entry ??= this.createEntry() ?? undefined;
+        entry ??= this.createEntry(ctx) ?? undefined;
         if (!entry) return null;
 
         try {
@@ -70,7 +82,7 @@ class SliderPathRasterCache {
         }
     }
 
-    release(): void {
+    public release(): void {
         for (const entry of this.entries.values()) this.releaseEntry(entry);
         this.entries.clear();
         this.cachedPixels = 0;
@@ -86,10 +98,10 @@ class SliderPathRasterCache {
         this.releaseEntry(entry);
     }
 
-    private createEntry(): RasterEntry | null {
+    private createEntry(ctx: CanvasRenderingContext2D): RasterEntry | null {
         const canvas = typeof OffscreenCanvas !== "undefined"
             ? new OffscreenCanvas(0, 0)
-            : this.ctx.canvas.ownerDocument?.createElement("canvas");
+            : ctx.canvas.ownerDocument?.createElement("canvas");
         if (!canvas) return null;
 
         canvas.width = 0;
@@ -124,7 +136,7 @@ class SliderPathRasterCache {
             height: request.height,
             pixelWidth: request.pixelWidth,
             pixelHeight: request.pixelHeight,
-            key: [...request.key],
+            appearance: {...request.appearance},
             coordinates,
         };
         return entry.canvas;
@@ -133,12 +145,12 @@ class SliderPathRasterCache {
     private matches(state: RasterState | undefined, request: RasterRequest): boolean {
         if (!state || state.width !== request.width || state.height !== request.height
             || state.pixelWidth !== request.pixelWidth || state.pixelHeight !== request.pixelHeight
-            || state.key.length !== request.key.length || state.coordinates.length !== request.points.length * 2) {
+            || state.coordinates.length !== request.points.length * 2) {
             return false;
         }
 
-        for (let i = 0; i < request.key.length; i++) {
-            if (state.key[i] !== request.key[i]) return false;
+        for (const key of Object.keys(request.appearance) as (keyof RasterAppearance)[]) {
+            if (state.appearance[key] !== request.appearance[key]) return false;
         }
         for (let i = 0; i < request.points.length; i++) {
             if (state.coordinates[i * 2] !== request.points[i].x || state.coordinates[i * 2 + 1] !== request.points[i].y) {
@@ -154,25 +166,4 @@ class SliderPathRasterCache {
         entry.canvas.height = 0;
         entry.state = undefined;
     }
-}
-
-/** Reuses the most recent raster for this drawable within a per-context memory budget. */
-export function getSliderPathRaster(
-    ctx: CanvasRenderingContext2D,
-    owner: object,
-    request: RasterRequest,
-    paint: (ctx: SliderPathRasterContext) => void,
-): RasterCanvas | null {
-    let cache = caches.get(ctx);
-    if (!cache) {
-        cache = new SliderPathRasterCache(ctx);
-        caches.set(ctx, cache);
-    }
-    return cache.get(owner, request, paint);
-}
-
-/** Releases cached and scratch pixels when the renderer changes size, beatmap or lifetime. */
-export function releaseSliderPathCache(ctx: CanvasRenderingContext2D): void {
-    caches.get(ctx)?.release();
-    caches.delete(ctx);
 }

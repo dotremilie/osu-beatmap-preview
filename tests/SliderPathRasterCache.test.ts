@@ -1,7 +1,7 @@
 import {Color4, SliderPath, Vector2} from "osu-classes";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {DrawableSliderPath} from "../src/drawables/standard/DrawableSliderPath";
-import {getSliderPathRaster, releaseSliderPathCache} from "../src/drawables/standard/SliderPathRasterCache";
+import SliderPathRasterCache from "../src/drawables/standard/SliderPathRasterCache";
 
 function createCanvas(width = 640, height = 480) {
     function createContext() {
@@ -52,7 +52,7 @@ function createCanvas(width = 640, height = 480) {
 }
 
 function createPath() {
-    const path = new DrawableSliderPath(new SliderPath(), new Color4(40, 60, 80), new Color4(160, 200, 240));
+    const path = new DrawableSliderPath(new SliderPath(), new Color4(40, 60, 80), new Color4(160, 200, 240), undefined, cache);
     const points = [new Vector2(0, 0), new Vector2(50, 10), new Vector2(100, 20)];
     return {path, points, position: new Vector2(100, 100)};
 }
@@ -63,12 +63,13 @@ function request(pixelWidth = 2048, pixelHeight = 2048) {
         height: pixelHeight,
         pixelWidth,
         pixelHeight,
-        key: ["border", "body", 16],
+        appearance: {x: 0, y: 0, pathRadius: 16, innerPathRadius: 12, borderStyle: "border", bodyStyle: "body"},
         points: [new Vector2(0, 0), new Vector2(100, 0)],
     };
 }
 
-beforeEach(() => vi.stubGlobal("OffscreenCanvas", undefined));
+let cache: SliderPathRasterCache;
+beforeEach(() => { cache = new SliderPathRasterCache(); vi.stubGlobal("OffscreenCanvas", undefined); });
 afterEach(() => vi.unstubAllGlobals());
 
 describe("slider raster reuse", () => {
@@ -203,18 +204,18 @@ describe("slider raster memory budget", () => {
         const {ctx, buffers} = createCanvas();
         const owners = Array.from({length: 6}, () => ({}));
         const paint = vi.fn();
-        for (let i = 0; i < 4; i++) getSliderPathRaster(ctx, owners[i], request(), paint);
+        for (let i = 0; i < 4; i++) cache.get(ctx, owners[i], request(), paint);
         expect(paint).toHaveBeenCalledTimes(4);
-        getSliderPathRaster(ctx, owners[0], request(), paint);
+        cache.get(ctx, owners[0], request(), paint);
         expect(paint).toHaveBeenCalledTimes(4);
-        getSliderPathRaster(ctx, owners[4], request(), paint);
+        cache.get(ctx, owners[4], request(), paint);
 
         expect(buffers[0].width).toBe(2048);
         expect(buffers[1].width).toBe(0);
         expect(buffers[1].height).toBe(0);
         expect(buffers.reduce((pixels, buffer) => pixels + buffer.width * buffer.height, 0)).toBe(16 * 1024 * 1024);
 
-        getSliderPathRaster(ctx, owners[1], request(), paint);
+        cache.get(ctx, owners[1], request(), paint);
         expect(paint).toHaveBeenCalledTimes(6);
         expect(buffers[2].width).toBe(0);
         expect(buffers.reduce((pixels, buffer) => pixels + buffer.width * buffer.height, 0)).toBe(16 * 1024 * 1024);
@@ -222,7 +223,7 @@ describe("slider raster memory budget", () => {
 
     it("limits the number of tiny surfaces as well as their pixels", () => {
         const {ctx, buffers} = createCanvas();
-        for (let i = 0; i < 300; i++) getSliderPathRaster(ctx, {}, request(1, 1), vi.fn());
+        for (let i = 0; i < 300; i++) cache.get(ctx, {}, request(1, 1), vi.fn());
         expect(buffers.filter(buffer => buffer.width > 0)).toHaveLength(256);
         expect(buffers[0].width).toBe(0);
     });
@@ -231,9 +232,9 @@ describe("slider raster memory budget", () => {
         const {ctx, memory} = createCanvas();
         const owner = {};
         const paint = vi.fn();
-        getSliderPathRaster(ctx, owner, request(2048, 4096), paint);
-        getSliderPathRaster(ctx, {}, request(2048, 4096), paint);
-        getSliderPathRaster(ctx, owner, request(4096, 2048), paint);
+        cache.get(ctx, owner, request(2048, 4096), paint);
+        cache.get(ctx, {}, request(2048, 4096), paint);
+        cache.get(ctx, owner, request(4096, 2048), paint);
 
         expect(memory.peakPixels).toBe(16 * 1024 * 1024);
         expect(paint).toHaveBeenCalledTimes(3);
@@ -243,35 +244,51 @@ describe("slider raster memory budget", () => {
         const {ctx, buffers} = createCanvas();
         const paint = vi.fn();
         const large = request(4096, 4097);
-        const first = getSliderPathRaster(ctx, {}, large, paint);
-        getSliderPathRaster(ctx, {}, large, paint);
+        const first = cache.get(ctx, {}, large, paint);
+        cache.get(ctx, {}, large, paint);
         expect(paint).toHaveBeenCalledTimes(1);
-        const second = getSliderPathRaster(ctx, {}, request(5000, 4000), paint);
+        const second = cache.get(ctx, {}, request(5000, 4000), paint);
         expect(second).toBe(first);
         expect(buffers).toHaveLength(1);
         expect(paint).toHaveBeenCalledTimes(2);
 
-        getSliderPathRaster(ctx, {}, request(), paint);
+        cache.get(ctx, {}, request(), paint);
         expect(buffers).toHaveLength(2);
-        releaseSliderPathCache(ctx);
+        cache.release();
         expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
     });
 
     it("keeps contexts independent and releases all pixels explicitly", () => {
         const first = createCanvas();
         const second = createCanvas();
+        const secondCache = new SliderPathRasterCache();
         const owner = {};
         const paint = vi.fn();
-        getSliderPathRaster(first.ctx, owner, request(), paint);
-        getSliderPathRaster(second.ctx, owner, request(), paint);
-        releaseSliderPathCache(first.ctx);
+        cache.get(first.ctx, owner, request(), paint);
+        secondCache.get(second.ctx, owner, request(), paint);
+        cache.release();
 
         expect(first.buffers[0].width).toBe(0);
         expect(second.buffers[0].width).toBe(2048);
-        getSliderPathRaster(first.ctx, owner, request(), paint);
+        cache.get(first.ctx, owner, request(), paint);
         expect(first.buffers).toHaveLength(2);
         expect(paint).toHaveBeenCalledTimes(3);
-        releaseSliderPathCache(first.ctx);
-        releaseSliderPathCache(second.ctx);
+        cache.release();
+        secondCache.release();
+    });
+});
+
+describe("failed raster ownership", () => {
+    it.each([[100, 100], [5000, 4000]])("releases failed normal and oversized surfaces %s x %s", (width, height) => {
+        const {ctx, buffers} = createCanvas();
+        const owner = {};
+        const paint = vi.fn(() => { throw new Error("paint failed"); });
+        expect(() => cache.get(ctx, owner, request(width, height), paint)).toThrow("paint failed");
+        expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
+        const goodPaint = vi.fn();
+        cache.get(ctx, owner, request(width, height), goodPaint);
+        expect(goodPaint).toHaveBeenCalledOnce();
+        cache.release();
+        expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
     });
 });

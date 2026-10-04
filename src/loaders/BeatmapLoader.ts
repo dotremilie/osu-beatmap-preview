@@ -1,31 +1,20 @@
-import {IBeatmap, Ruleset} from "osu-classes";
-import {BeatmapDecoder} from "osu-parsers";
+import type {IBeatmap} from "osu-classes";
+import {StandardRuleset} from "osu-standard-stable";
+import BeatmapPreparation, {BeatmapLoaderOptions} from "../internal/BeatmapPreparation";
+import {assertPreparedBeatmap, createPreparedBeatmap, PreparedBeatmap} from "./PreparedBeatmap";
+export type {BeatmapLoaderOptions} from "../internal/BeatmapPreparation";
 
-export interface BeatmapLoaderOptions {
-    mods?: number;
-}
-
-/** Prepares beatmaps independently of any canvas or renderer. */
-export default class BeatmapLoader<TRuleset extends Ruleset> {
-    private readonly decoder = new BeatmapDecoder();
-
-    constructor(private readonly ruleset: TRuleset) {}
-
-    public loadBeatmapText(osuText: string, options: BeatmapLoaderOptions = {}): Readonly<ReturnType<TRuleset["applyToBeatmapWithMods"]>> {
-        return this.loadBeatmap(this.decoder.decodeFromString(osuText), options);
+/** Prepares standard maps once for attachment to independent views. */
+export default class BeatmapLoader {
+    private readonly preparation = new BeatmapPreparation(new StandardRuleset());
+    public loadBeatmapText(text: string, options: BeatmapLoaderOptions = {}): PreparedBeatmap {
+        return createPreparedBeatmap(this.preparation.loadBeatmapText(text, options));
     }
-
-    /** Externally prepared maps need an unmodified base to replace their existing mods. */
-    public loadBeatmap(beatmap: Readonly<IBeatmap>, options: BeatmapLoaderOptions = {}): Readonly<ReturnType<TRuleset["applyToBeatmapWithMods"]>> {
-        const mods = this.ruleset.createModCombination(options.mods ?? 0);
-        // Start from the decoded source so replacing mods cannot compound difficulty changes.
-        const source = beatmap.base ?? beatmap;
-        const workingBeatmap = source.clone();
-        // Converters can share geometry with their input and follow its base reference.
-        // Apply mods to an isolated copy while retaining the pristine source for later loads.
-        workingBeatmap.base = undefined;
-        const appliedBeatmap = this.ruleset.applyToBeatmapWithMods(workingBeatmap, mods) as ReturnType<TRuleset["applyToBeatmapWithMods"]>;
-        appliedBeatmap.base = source;
-        return appliedBeatmap;
+    public loadBeatmap(beatmap: Readonly<IBeatmap> | PreparedBeatmap, options: BeatmapLoaderOptions = {}): PreparedBeatmap {
+        if ("beatmap" in beatmap) {
+            assertPreparedBeatmap(beatmap);
+            return createPreparedBeatmap(this.preparation.loadBeatmap(beatmap.beatmap, options));
+        }
+        return createPreparedBeatmap(this.preparation.loadBeatmap(beatmap, options));
     }
 }

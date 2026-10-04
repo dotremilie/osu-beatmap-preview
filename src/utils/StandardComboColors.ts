@@ -1,7 +1,7 @@
 import {Color4} from "osu-classes";
 import {StandardBeatmap} from "osu-standard-stable";
 
-export function getStandardComboColors(beatmap: StandardBeatmap): Color4[] {
+export function getStandardComboColors(beatmap: Readonly<StandardBeatmap>): Color4[] {
     if (!beatmap.colors.comboColors?.length) {
         return [
             new Color4(0, 202, 0),

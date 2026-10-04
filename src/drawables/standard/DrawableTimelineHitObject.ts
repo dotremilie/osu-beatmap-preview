@@ -1,5 +1,8 @@
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 import {Color4, SliderPath, Vector2} from "osu-classes";
 import {Slider, SliderRepeat, Spinner, StandardHitObject} from "osu-standard-stable";
+import SliderPathRasterCache from "./SliderPathRasterCache";
+import PlaybackTiming from "../../internal/PlaybackTiming";
 import MathUtils from "../../utils/MathUtils";
 import TimelineViewport from "../../utils/TimelineViewport";
 import {DrawableCircle} from "./DrawableCircle";
@@ -22,26 +25,29 @@ export class DrawableTimelineHitObject {
         private readonly hitObject: StandardHitObject,
         color: Color4,
         clockRate: number,
+        rasterCache = new SliderPathRasterCache(),
+        private readonly appearance: StandardAppearance = new DefaultAppearance(),
     ) {
-        this.startTime = hitObject.startTime / clockRate;
-        this.endTime = (hitObject instanceof Slider || hitObject instanceof Spinner
+        const timing = new PlaybackTiming(clockRate);
+        this.startTime = timing.beatmapToPlayback(hitObject.startTime);
+        this.endTime = timing.beatmapToPlayback(hitObject instanceof Slider || hitObject instanceof Spinner
             ? hitObject.endTime
-            : hitObject.startTime) / clockRate;
+            : hitObject.startTime);
 
         const repeats = hitObject instanceof Slider
             ? hitObject.nestedHitObjects.filter(object => object instanceof SliderRepeat)
             : [];
-        this.markerTimes = [...repeats.map(object => object.startTime / clockRate), this.endTime];
+        this.markerTimes = [...repeats.map(object => timing.beatmapToPlayback(object.startTime)), this.endTime];
         const displayColor = hitObject instanceof Spinner ? new Color4(160, 160, 160) : color;
         this.head = hitObject instanceof Slider
-            ? new DrawableSliderHead(hitObject, displayColor)
-            : new DrawableCircle(hitObject, displayColor);
+            ? new DrawableSliderHead(hitObject, displayColor, false, appearance)
+            : new DrawableCircle(hitObject, displayColor, false, appearance);
 
         const accentColor = new Color4(displayColor.red / 4, displayColor.green / 4, displayColor.blue / 4);
         if (hitObject instanceof Slider) {
-            this.sliderBody = new DrawableSliderBody(hitObject, accentColor, displayColor, false, 1);
+            this.sliderBody = new DrawableSliderBody(hitObject, accentColor, displayColor, false, 1, rasterCache, appearance);
         } else if (hitObject instanceof Spinner) {
-            this.spinnerBody = new DrawableSliderPath(new SliderPath(), accentColor, displayColor, 1);
+            this.spinnerBody = new DrawableSliderPath(new SliderPath(), accentColor, displayColor, 1, rasterCache, appearance);
         }
     }
 
@@ -90,14 +96,7 @@ export class DrawableTimelineHitObject {
     }
 
     private drawMarker(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, lineWidth: number): void {
-        const {red, green, blue} = this.head.color;
-        ctx.strokeStyle = `rgb(${red},${green},${blue})`;
-        ctx.fillStyle = `rgb(${red / 4},${green / 4},${blue / 4})`;
-        ctx.lineWidth = lineWidth;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        this.appearance.marker(ctx, x, y, radius, this.head.color, lineWidth);
     }
 
     private drawHead(ctx: CanvasRenderingContext2D, time: number, viewport: TimelineViewport, width: number, y: number): void {

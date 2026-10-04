@@ -1,7 +1,7 @@
 import {readFileSync} from "node:fs";
 import {ModBitwise} from "osu-classes";
-import {BeatmapDecoder} from "osu-parsers";
-import {Circle, Slider, Spinner, StandardRuleset} from "osu-standard-stable";
+import BeatmapLoader from "../src/loaders/BeatmapLoader";
+import {Circle, Slider, Spinner} from "osu-standard-stable";
 import {afterEach, describe, expect, it, vi} from "vitest";
 import {DrawableApproachCircle} from "../src/drawables/standard/DrawableApproachCircle";
 import {DrawableCircle} from "../src/drawables/standard/DrawableCircle";
@@ -12,11 +12,16 @@ import StandardBeatmapRenderer from "../src/renderers/StandardBeatmapRenderer";
 import StandardTimelineRenderer from "../src/renderers/StandardTimelineRenderer";
 import TimelineViewport from "../src/utils/TimelineViewport";
 
+// Follow-point painting is exercised separately with a complete canvas mock.
+vi.mock("../src/internal/appearance/DrawableFollowPoint", () => ({default: class {
+    draw(): void {}
+    dispose(): void {}
+}}));
+
 const BEATMAP_TEXT = readFileSync(new URL("./fixtures/timeline.osu", import.meta.url), "utf8");
 
 function createBeatmap(mods = 0, text = BEATMAP_TEXT) {
-    const ruleset = new StandardRuleset();
-    return ruleset.applyToBeatmapWithMods(new BeatmapDecoder().decodeFromString(text), ruleset.createModCombination(mods));
+    return new BeatmapLoader().loadBeatmapText(text, {mods});
 }
 
 function createContext() {
@@ -45,7 +50,7 @@ describe("renderer visibility selection", () => {
                 events.push(`approach:${this.drawableCircle.hitObject.startTime}`);
             });
             const renderer = new StandardBeatmapRenderer(createContext(), beatmap);
-            const times = beatmap.hitObjects.flatMap(object => {
+            const times = beatmap.beatmap.hitObjects.flatMap(object => {
                 const start = object.startTime - object.timePreempt;
                 const hitDuration = object instanceof Spinner
                     ? Math.max(240, mods & ModBitwise.Hidden ? object.timePreempt * 0.3 : 0)
@@ -61,9 +66,9 @@ describe("renderer visibility selection", () => {
             for (const time of times) {
                 events.length = 0;
                 drawTimes.length = 0;
-                const playbackTime = time / beatmap.difficulty.clockRate;
-                const renderedTime = playbackTime * beatmap.difficulty.clockRate;
-                const visible = beatmap.hitObjects.filter(object =>
+                const playbackTime = time / beatmap.beatmap.difficulty.clockRate;
+                const renderedTime = playbackTime * beatmap.beatmap.difficulty.clockRate;
+                const visible = beatmap.beatmap.hitObjects.filter(object =>
                     renderedTime >= object.startTime - object.timePreempt
                     && renderedTime <= (object instanceof Slider || object instanceof Spinner ? object.endTime : object.startTime)
                         + (object instanceof Spinner
@@ -102,14 +107,14 @@ describe("renderer visibility selection", () => {
                 viewport.timeRange = range;
                 viewport.objectRadius = radius;
                 renderer.resize(width, 40);
-                const playbackTime = time / beatmap.difficulty.clockRate;
+                const playbackTime = time / beatmap.beatmap.difficulty.clockRate;
                 const padding = range / 2 + radius / width * range;
-                const expected = beatmap.hitObjects.filter(object => {
-                    const start = object.startTime / beatmap.difficulty.clockRate;
+                const expected = beatmap.beatmap.hitObjects.filter(object => {
+                    const start = object.startTime / beatmap.beatmap.difficulty.clockRate;
                     const end = (object instanceof Slider || object instanceof Spinner ? object.endTime : object.startTime)
-                        / beatmap.difficulty.clockRate;
+                        / beatmap.beatmap.difficulty.clockRate;
                     return start <= playbackTime + padding && end >= playbackTime - padding;
-                }).reverse().map(object => object.startTime / beatmap.difficulty.clockRate);
+                }).reverse().map(object => object.startTime / beatmap.beatmap.difficulty.clockRate);
                 visibleStarts.length = 0;
 
                 renderer.render(playbackTime);

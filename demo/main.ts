@@ -1,15 +1,15 @@
 import "../assets/fonts/torus.css";
 import "./style.css";
 import {BeatmapLoader, StandardBeatmapPreviewer, StandardTimelinePreviewer} from "../src";
-import {StandardRuleset} from "osu-standard-stable";
-import renatus from "./beatmaps/Renatus.osu?raw";
-import aspire from "./beatmaps/aspire.osu?raw";
-import neto from "./beatmaps/neto.osu?raw";
+import PlaybackController from "./PlaybackController";
+import TimelineInteraction from "./TimelineInteraction";
+import {renderPreviewFrame} from "./PreviewFrame";
+import LatestBeatmapLoad from "./LatestBeatmapLoad";
 
 const SHOWCASE_BEATMAPS = {
-    renatus: {text: renatus, label: "Renatus"},
-    aspire: {text: aspire, label: "Aspire"},
-    neto: {text: neto, label: "Net0"},
+    renatus: {load: () => import("./beatmaps/Renatus.osu?raw").then(module => module.default), label: "Renatus"},
+    aspire: {load: () => import("./beatmaps/aspire.osu?raw").then(module => module.default), label: "Aspire"},
+    neto: {load: () => import("./beatmaps/neto.osu?raw").then(module => module.default), label: "Net0"},
 } as const;
 
 type ShowcaseBeatmap = keyof typeof SHOWCASE_BEATMAPS;
@@ -35,8 +35,12 @@ const status = getElement<HTMLElement>("status");
 const fileInput = getElement<HTMLInputElement>("beatmap-file");
 const beatmapSelect = getElement<HTMLSelectElement>("beatmap-select");
 
-const beatmapLoader = new BeatmapLoader(new StandardRuleset());
+const autoplayCheckbox = getElement<HTMLInputElement>("autoplay");
+const cursorTrailCheckbox = getElement<HTMLInputElement>("cursor-trail");
+
+const beatmapLoader = new BeatmapLoader();
 const preview = new StandardBeatmapPreviewer(canvas, {
+    autoplay: true,
     width: 640,
     height: 480,
     devicePixelRatio: Math.min(globalThis.devicePixelRatio ?? 1, 2),
@@ -51,23 +55,25 @@ const timelinePreview = new StandardTimelinePreviewer(timelineCanvas, {
     devicePixelRatio: Math.min(globalThis.devicePixelRatio ?? 1, 2),
 });
 
-let duration = 1;
-let position = 0;
-let playing = true;
-let previousFrame = performance.now();
-let timelineDrag: {
-    pointerId: number;
-    startX: number;
-    position: number;
-    millisecondsPerPixel: number;
-    playing: boolean;
-    moved: boolean;
-} | null = null;
+const events = new AbortController();
+const loadRequest = new LatestBeatmapLoad();
+let displayedDuration: number | undefined;
+let displayedPlaying: boolean | undefined;
+const playback = new PlaybackController(render, syncPlaybackControls);
+const timelineInput = new TimelineInteraction(timelineCanvas, timelinePreview, playback, TIMELINE_WIDTH, syncZoomControls);
+syncPlaybackControls();
+syncZoomControls();
+void loadShowcase("renatus");
 
-loadShowcase("renatus");
-requestAnimationFrame(frame);
-
-playButton.addEventListener("click", togglePlayback);
+autoplayCheckbox.addEventListener("change", () => {
+    preview.autoplay = autoplayCheckbox.checked;
+    playback.invalidate();
+}, {signal: events.signal});
+cursorTrailCheckbox.addEventListener("change", () => {
+    preview.cursorTrail = cursorTrailCheckbox.checked;
+    playback.invalidate();
+}, {signal: events.signal});
+playButton.addEventListener("click", togglePlayback, {signal: events.signal});
 fullscreenButton.disabled = !document.fullscreenEnabled;
 fullscreenButton.addEventListener("click", async () => {
     try {
@@ -80,79 +86,56 @@ fullscreenButton.addEventListener("click", async () => {
         status.textContent = "Could not change fullscreen mode";
         status.dataset.error = "true";
     }
-});
+}, {signal: events.signal});
 document.addEventListener("fullscreenchange", () => {
     const fullscreen = document.fullscreenElement === previewStage;
     fullscreenButton.textContent = fullscreen ? "Exit fullscreen" : "Fullscreen";
     fullscreenButton.setAttribute("aria-pressed", String(fullscreen));
     resizePreview();
+    playback.invalidate();
+}, {signal: events.signal});
+let resizePending = false;
+const resizeObserver = new ResizeObserver(() => {
+    resizePending = true;
+    playback.invalidate();
 });
-new ResizeObserver(resizePreview).observe(previewStage);
-window.addEventListener("resize", resizePreview);
+resizeObserver.observe(previewStage);
+window.addEventListener("resize", resizePreview, {signal: events.signal});
 restartButton.addEventListener("click", () => {
-    finishTimelineDrag();
-    playing = true;
-    seek(0);
-});
+    timelineInput.finish();
+    playback.setPlaying(true);
+    playback.seek(0);
+}, {signal: events.signal});
 
 positionSlider.addEventListener("input", () => {
-    seek(Number(positionSlider.value));
-});
+    playback.seek(Number(positionSlider.value));
+}, {signal: events.signal});
 
-zoomInButton.addEventListener("click", () => zoomTimeline(1.5));
-zoomOutButton.addEventListener("click", () => zoomTimeline(1 / 1.5));
+zoomInButton.addEventListener("click", () => timelineInput.zoom(1.5), {signal: events.signal});
+zoomOutButton.addEventListener("click", () => timelineInput.zoom(1 / 1.5), {signal: events.signal});
 beatSnapSelect.addEventListener("change", () => {
     timelinePreview.beatSnapDivisor = Number(beatSnapSelect.value);
-    render();
-});
-timelineCanvas.addEventListener("wheel", scrollTimeline, {passive: false});
+    playback.invalidate();
+}, {signal: events.signal});
 objectRadiusInput.addEventListener("input", () => {
     const radius = objectRadiusInput.valueAsNumber;
     if (!Number.isFinite(radius) || !objectRadiusInput.validity.valid) return;
 
     timelinePreview.objectRadius = radius;
     timelinePreview.resize(TIMELINE_WIDTH, Math.ceil(radius * 2 + 14), Math.min(globalThis.devicePixelRatio ?? 1, 2));
-    render();
-});
-timelineCanvas.addEventListener("pointerdown", startTimelineDrag);
-timelineCanvas.addEventListener("pointermove", moveTimelineDrag);
-timelineCanvas.addEventListener("pointerup", (event) => {
-    if (timelineDrag?.pointerId !== event.pointerId) return;
-
-    if (!timelineDrag.moved) {
-        const bounds = timelineCanvas.getBoundingClientRect();
-        const x = (event.clientX - bounds.left) / bounds.width * TIMELINE_WIDTH;
-        seek(timelinePreview.timeAtPosition(x, position));
-    }
-
-    finishTimelineDrag();
-});
-timelineCanvas.addEventListener("pointercancel", (event) => {
-    if (timelineDrag?.pointerId === event.pointerId) finishTimelineDrag();
-});
-timelineCanvas.addEventListener("lostpointercapture", (event) => {
-    if (timelineDrag?.pointerId === event.pointerId) finishTimelineDrag();
-});
-timelineCanvas.addEventListener("keydown", navigateTimeline);
+    playback.invalidate();
+}, {signal: events.signal});
 
 beatmapSelect.addEventListener("change", () => {
     loadShowcase(beatmapSelect.value as ShowcaseBeatmap);
-});
+}, {signal: events.signal});
 
-fileInput.addEventListener("change", async () => {
+fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
-
     if (!file) return;
-
-    try {
-        loadBeatmap(await file.text(), `Loaded ${file.name}`);
-    } catch (error) {
-        status.textContent = error instanceof Error ? error.message : "Could not load that beatmap";
-        status.dataset.error = "true";
-    } finally {
-        fileInput.value = "";
-    }
-});
+    fileInput.value = "";
+    void loadRequest.run(() => file.text(), text => loadBeatmap(text, `Loaded ${file.name}`), showLoadError);
+}, {signal: events.signal});
 
 document.addEventListener("keydown", (event) => {
     if (event.code !== "Space" || event.target instanceof HTMLInputElement
@@ -162,7 +145,7 @@ document.addEventListener("keydown", (event) => {
 
     event.preventDefault();
     togglePlayback();
-});
+}, {signal: events.signal});
 
 function resizePreview(): void {
     const fullscreen = document.fullscreenElement === previewStage;
@@ -174,162 +157,80 @@ function resizePreview(): void {
         && canvas.width === Math.round(width * pixelRatio) && canvas.height === Math.round(height * pixelRatio)) return;
 
     preview.resize(width, height, pixelRatio);
-    render();
+    playback.invalidate();
 }
 
 function loadBeatmap(text: string, message: string): void {
-    const beatmap = beatmapLoader.loadBeatmapText(text);
-    preview.loadPreparedBeatmap(beatmap);
+    const prepared = beatmapLoader.loadBeatmapText(text);
+    const beatmap = prepared.beatmap;
+    preview.loadPreparedBeatmap(prepared);
     const hitObjects = beatmap.hitObjects;
 
-    finishTimelineDrag();
-    timelinePreview.loadPreparedBeatmap(beatmap);
-    duration = Math.max(1, beatmap.totalLength);
+    timelineInput.finish();
+    timelinePreview.loadPreparedBeatmap(prepared);
+    const duration = Math.max(1, beatmap.totalLength);
     const previewTime = beatmap.general.previewTime;
-    playing = true;
     positionSlider.max = String(duration);
     timelineCanvas.setAttribute("aria-valuemax", String(duration));
     title.textContent = beatmap.metadata.title || "Untitled beatmap";
     artist.textContent = [beatmap.metadata.artist, beatmap.metadata.version].filter(Boolean).join(" · ");
     status.textContent = `${message} · ${hitObjects.length} objects`;
     delete status.dataset.error;
-    seek(previewTime >= 0 ? previewTime : hitObjects[0]?.startTime ?? 0);
+    playback.load(duration, previewTime >= 0 ? previewTime : hitObjects[0]?.startTime ?? 0);
 }
 
-function loadShowcase(key: ShowcaseBeatmap): void {
+async function loadShowcase(key: ShowcaseBeatmap): Promise<void> {
     const beatmap = SHOWCASE_BEATMAPS[key];
-    beatmapSelect.value = key;
-    loadBeatmap(beatmap.text, `Loaded ${beatmap.label} showcase`);
+    await loadRequest.run(beatmap.load, text => {
+        loadBeatmap(text, `Loaded ${beatmap.label} showcase`);
+        beatmapSelect.value = key;
+    }, showLoadError);
 }
 
-function frame(now: number): void {
-    if (playing) {
-        position += now - previousFrame;
-
-        if (position >= duration) {
-            position = 0;
-        }
-
-        render();
-    }
-
-    previousFrame = now;
-    requestAnimationFrame(frame);
+function showLoadError(error: unknown): void {
+    status.textContent = error instanceof Error ? error.message : "Could not load that beatmap";
+    status.dataset.error = "true";
 }
 
 function togglePlayback(): void {
-    finishTimelineDrag();
-    playing = !playing;
-    previousFrame = performance.now();
-    render();
-}
-
-function seek(time: number): void {
-    position = Math.max(0, Math.min(time, duration));
-    previousFrame = performance.now();
-    render();
+    timelineInput.finish();
+    playback.setPlaying(!playback.playing);
 }
 
 function render(): void {
-    preview.render(position);
-    timelinePreview.render(position);
-    syncControls();
-}
-
-function zoomTimeline(factor: number): void {
-    timelinePreview.zoom(factor);
-    render();
-}
-
-function scrollTimeline(event: WheelEvent): void {
-    event.preventDefault();
-    if (timelineDrag) return;
-
-    const width = timelineCanvas.getBoundingClientRect().width;
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    const pixels = delta * (event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
-        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? width : 1);
-
-    if (event.ctrlKey || event.metaKey) {
-        zoomTimeline(Math.exp(-Math.max(-500, Math.min(500, pixels)) * 0.002));
-    } else {
-        seek(position + pixels / width * timelinePreview.timeRange);
+    if (resizePending) {
+        resizePending = false;
+        resizePreview();
     }
+    renderPreviewFrame(preview, timelinePreview, playback.position, document.fullscreenElement === previewStage);
+    syncPositionControls();
 }
 
-function startTimelineDrag(event: PointerEvent): void {
-    if (event.button !== 0 || timelineDrag) return;
-
-    timelineDrag = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        position,
-        millisecondsPerPixel: timelinePreview.timeRange / timelineCanvas.getBoundingClientRect().width,
-        playing,
-        moved: false,
-    };
-    playing = false;
-    timelineCanvas.setPointerCapture(event.pointerId);
-    timelineCanvas.focus({preventScroll: true});
-    timelineCanvas.dataset.dragging = "true";
-    event.preventDefault();
-    syncControls();
-}
-
-function moveTimelineDrag(event: PointerEvent): void {
-    if (timelineDrag?.pointerId !== event.pointerId) return;
-
-    const distance = event.clientX - timelineDrag.startX;
-    if (Math.abs(distance) > 3) timelineDrag.moved = true;
-    if (!timelineDrag.moved) return;
-
-    seek(timelineDrag.position - distance * timelineDrag.millisecondsPerPixel);
-}
-
-function finishTimelineDrag(): void {
-    if (!timelineDrag) return;
-
-    const {pointerId, playing: wasPlaying} = timelineDrag;
-    timelineDrag = null;
-    playing = wasPlaying;
-    previousFrame = performance.now();
-    delete timelineCanvas.dataset.dragging;
-
-    if (timelineCanvas.hasPointerCapture(pointerId)) timelineCanvas.releasePointerCapture(pointerId);
-    syncControls();
-}
-
-function navigateTimeline(event: KeyboardEvent): void {
-    const step = timelinePreview.timeRange / (event.shiftKey ? 4 : 20);
-
-    switch (event.key) {
-        case "ArrowLeft":
-        case "ArrowDown": seek(position - step); break;
-        case "ArrowRight":
-        case "ArrowUp": seek(position + step); break;
-        case "Home": seek(0); break;
-        case "End": seek(duration); break;
-        case "+":
-        case "=": zoomTimeline(1.5); break;
-        case "-": zoomTimeline(1 / 1.5); break;
-        default: return;
-    }
-
-    event.preventDefault();
-}
-
-function syncControls(): void {
-    positionSlider.value = String(Math.round(position));
-    positionSlider.style.setProperty("--progress", `${position / duration * 100}%`);
-    timelineCanvas.setAttribute("aria-valuenow", String(Math.round(position)));
-    timelineCanvas.setAttribute("aria-valuetext", formatTime(position));
+function syncZoomControls(): void {
     zoomInButton.disabled = timelinePreview.timeRange <= 250;
     zoomOutButton.disabled = timelinePreview.timeRange >= 60_000;
+}
+
+function syncPlaybackControls(): void {
+    if (displayedDuration !== playback.duration) {
+        displayedDuration = playback.duration;
+        durationLabel.textContent = formatTime(playback.duration);
+    }
+    if (displayedPlaying !== playback.playing) {
+        displayedPlaying = playback.playing;
+        playButton.dataset.playing = String(playback.playing);
+        playButton.setAttribute("aria-label", playback.playing ? "Pause preview" : "Play preview");
+        playButton.textContent = playback.playing ? "Pause" : "Play";
+    }
+}
+
+function syncPositionControls(): void {
+    const position = playback.position;
+    positionSlider.value = String(Math.round(position));
+    positionSlider.style.setProperty("--progress", `${position / playback.duration * 100}%`);
+    timelineCanvas.setAttribute("aria-valuenow", String(Math.round(position)));
+    timelineCanvas.setAttribute("aria-valuetext", formatTime(position));
     currentTime.textContent = formatTime(position);
-    durationLabel.textContent = formatTime(duration);
-    playButton.dataset.playing = String(playing);
-    playButton.setAttribute("aria-label", playing ? "Pause preview" : "Play preview");
-    playButton.textContent = playing ? "Pause" : "Play";
 }
 
 function formatTime(milliseconds: number): string {
@@ -346,3 +247,15 @@ function getElement<T extends HTMLElement>(id: string): T {
 
     return element as T;
 }
+
+function dispose(): void {
+    events.abort();
+    resizeObserver.disconnect();
+    loadRequest.dispose();
+    timelineInput.dispose();
+    playback.dispose();
+    preview.dispose();
+    timelinePreview.dispose();
+}
+window.addEventListener("pagehide", dispose, {once: true, signal: events.signal});
+if (import.meta.hot) import.meta.hot.dispose(dispose);

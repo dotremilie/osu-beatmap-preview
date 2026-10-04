@@ -12,7 +12,6 @@ export abstract class DrawableStandardHitObject<T extends StandardHitObject> ext
     HIT_FACTOR = 1.33;
     HIT_DURATION = 150;
 
-    parentHitObject?: DrawableStandardHitObject<StandardHitObject>;
 
     constructor(hitObject: T, public readonly hidden = false) {
         super(hitObject);
@@ -20,7 +19,7 @@ export abstract class DrawableStandardHitObject<T extends StandardHitObject> ext
 
     opacity(time: number): number {
         return this.fadeInOpacity(time);
-    };
+    }
 
     protected fadeInOpacity(time: number): number {
         const fadeInStartTime = this.hitObject.startTime - this.hitObject.timePreempt;
@@ -52,14 +51,6 @@ export abstract class DrawableStandardHitObject<T extends StandardHitObject> ext
 
     protected static clamp01(value: number): number {
         return Math.max(0, Math.min(1, value));
-    }
-
-    x() {
-        return this.hitObject.stackedStartPosition.x;
-    }
-
-    y() {
-        return this.hitObject.stackedStartPosition.y;
     }
 
     abstract draw(ctx: CanvasRenderingContext2D, time: number): void;

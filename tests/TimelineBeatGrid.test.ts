@@ -1,5 +1,5 @@
 import {ControlPointGroup, TimingPoint, TimeSignature} from "osu-classes";
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 import {getTimelineTicks} from "../src/utils/TimelineBeatGrid";
 
 function timingPoint(startTime: number, beatLength: number, timeSignature = TimeSignature.SimpleQuadruple) {
@@ -128,5 +128,33 @@ describe("TimelineBeatGrid", () => {
         expect(ticks[0]).toEqual({time: 250, kind: "bar", divisor: 1});
         expect(ticks.every(tick => tick.kind === "bar" && (tick.time - 250) % 2000 === 0)).toBe(true);
         expect(ticks.slice(1).every((tick, index) => tick.time - ticks[index].time >= 1500)).toBe(true);
+    });
+});
+
+describe("density across timing changes", () => {
+    it("bounds a grid with 10,000 closely spaced phase resets", () => {
+        const points = Array.from({length: 10000}, (_, index) => timingPoint(index * 2, 500));
+        const ticks = getTimelineTicks(points, 0, 20000, 16, 93.75);
+        expect(ticks.length).toBeLessThanOrEqual(Math.ceil(20000 / 93.75) + 1);
+        for (let index = 1; index < ticks.length; index++) {
+            expect(ticks[index].time - ticks[index - 1].time).toBeGreaterThanOrEqual(93.75);
+        }
+        expect(ticks.every(tick => tick.kind === "bar")).toBe(true);
+        expect(ticks[0].time).toBe(0);
+    });
+
+    it("retains a stronger nearby tick at its actual time and earlier equal-priority ticks", () => {
+        const points = [timingPoint(0, 500), timingPoint(540, 500), timingPoint(550, 500)];
+        const ticks = getTimelineTicks(points, 450, 650, 4, 100);
+        expect(ticks).toEqual([{time: 540, kind: "bar", divisor: 1}]);
+    });
+
+    it("starts from the active segment without visiting earlier timing points", () => {
+        const earlier = timingPoint(0, 500);
+        const access = vi.spyOn(earlier, "beatLength", "get");
+        const points = [earlier, timingPoint(1000, 400), timingPoint(2000, 300)];
+        const ticks = getTimelineTicks(points, 2100, 2400, 4);
+        expect(access).not.toHaveBeenCalled();
+        expect(ticks.every(tick => tick.time >= 2100 && tick.time <= 2400)).toBe(true);
     });
 });

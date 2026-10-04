@@ -1,5 +1,6 @@
 export default abstract class Renderer {
-    protected ctx: CanvasRenderingContext2D;
+    protected disposed = false;
+    protected readonly ctx: CanvasRenderingContext2D;
 
     protected constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
@@ -14,5 +15,5 @@ export default abstract class Renderer {
     public resize(width: number, height: number): void {}
 
     /** Releases resources owned by the renderer. */
-    public dispose(): void {}
+    public dispose(): void { this.disposed = true; }
 }

@@ -1,7 +1,6 @@
 import {DrawableCircle} from "./DrawableCircle";
 
 export class DrawableApproachCircle {
-    APPROACH_CIRCLE_WIDTH = 0.09;
     APPROACH_CIRCLE_SIZE = 4;
 
     drawableCircle: DrawableCircle;
@@ -10,18 +9,15 @@ export class DrawableApproachCircle {
         this.drawableCircle = hitObject;
     }
 
-    draw(ctx: CanvasRenderingContext2D, time: number) {
+    draw(ctx: CanvasRenderingContext2D, time: number): void {
         const {radius, stackedStartPosition} = this.drawableCircle.hitObject;
-        let {x, y} = stackedStartPosition;
+        const {x, y} = stackedStartPosition;
 
         const opacity = this.opacity(time);
-        const scale = this.scale(time)
+        if (opacity <= 0) return;
+        const scale = this.scale(time);
 
-        ctx.lineWidth = radius * this.APPROACH_CIRCLE_WIDTH;
-        ctx.strokeStyle = `rgba(${this.drawableCircle.color.red},${this.drawableCircle.color.green},${this.drawableCircle.color.blue},${opacity})`;
-        ctx.beginPath();
-        ctx.arc(x, y, radius * (1 + this.APPROACH_CIRCLE_SIZE * scale), 0, Math.PI * 2);
-        ctx.stroke();
+        this.drawableCircle.appearance.approachCircle(ctx, {x, y}, radius, this.drawableCircle.color, opacity, radius * (1 + this.APPROACH_CIRCLE_SIZE * scale));
     }
 
     opacity(time: number): number {

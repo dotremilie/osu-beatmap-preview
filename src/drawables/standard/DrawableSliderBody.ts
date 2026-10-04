@@ -1,6 +1,8 @@
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 import {Slider} from "osu-standard-stable";
 import {Color4, Vector2} from "osu-classes";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
+import SliderPathRasterCache from "./SliderPathRasterCache";
 import {DrawableSliderPath} from "./DrawableSliderPath";
 
 export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
@@ -36,9 +38,11 @@ export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
         borderColor: Color4 = new Color4(255, 255, 255),
         hidden = false,
         bodyAlpha = DrawableSliderPath.ARGON_PRO_BODY_ALPHA,
+        rasterCache = new SliderPathRasterCache(),
+        appearance: StandardAppearance = new DefaultAppearance(),
     ) {
         super(hitObject, hidden);
-        this.sliderPath = new DrawableSliderPath(hitObject.path, accentColor, borderColor, bodyAlpha);
+        this.sliderPath = new DrawableSliderPath(hitObject.path, accentColor, borderColor, bodyAlpha, rasterCache, appearance);
     }
 
     draw(ctx: CanvasRenderingContext2D, time: number): void {

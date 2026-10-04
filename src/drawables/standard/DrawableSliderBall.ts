@@ -1,6 +1,8 @@
 import {SliderTick} from "osu-standard-stable";
 import MathUtils from "../../utils/MathUtils";
-import type {DrawableSlider} from "./DrawableSlider";
+import type {Slider} from "osu-standard-stable";
+import type {Color4} from "osu-classes";
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 
 /** Canvas implementation of osu!'s Argon slider ball and follow circle. */
 export class DrawableSliderBall {
@@ -16,8 +18,8 @@ export class DrawableSliderBall {
 
     private readonly tickTimes: number[];
 
-    constructor(private readonly drawableSlider: DrawableSlider) {
-        this.tickTimes = drawableSlider.hitObject.nestedHitObjects
+    constructor(private readonly slider: Slider, private readonly color: Color4, private readonly appearance: StandardAppearance = new DefaultAppearance()) {
+        this.tickTimes = slider.nestedHitObjects
             .filter((nested): nested is SliderTick => nested instanceof SliderTick)
             .map((tick) => tick.startTime);
     }
@@ -25,12 +27,12 @@ export class DrawableSliderBall {
     draw(ctx: CanvasRenderingContext2D, time: number): void {
         const {x, y, completion} = this.positionAt(time);
 
-        this.drawFollowCircle(ctx, time, x, y);
-        this.drawBall(ctx, time, x, y, completion);
+        this.appearance.sliderFollow(ctx, this.followOpacity(time), this.slider.radius, this.scale(time), this.color, x, y);
+        this.appearance.sliderBall(ctx, this.opacity(time), this.slider.radius, this.color, x, y, this.iconScale(time), this.rotationAt(completion));
     }
 
     opacity(time: number): number {
-        const {startTime, endTime} = this.drawableSlider.hitObject;
+        const {startTime, endTime} = this.slider;
         const fadeIn = DrawableSliderBall.easeOutQuint(MathUtils.clamp(
             (Math.min(time, endTime) - startTime) / DrawableSliderBall.BALL_FADE_IN_DURATION,
             0,
@@ -50,7 +52,7 @@ export class DrawableSliderBall {
 
     /** Returns the Argon follow-circle scale. */
     scale(time: number): number {
-        const {startTime, endTime} = this.drawableSlider.hitObject;
+        const {startTime, endTime} = this.slider;
         const endScale = this.followScaleBeforeEnd(endTime);
 
         if (time <= endTime) return this.followScaleBeforeEnd(time);
@@ -64,115 +66,8 @@ export class DrawableSliderBall {
         return endScale + (1 - endScale) * endProgress;
     }
 
-    private drawFollowCircle(
-        ctx: CanvasRenderingContext2D,
-        time: number,
-        x: number,
-        y: number,
-    ): void {
-        const opacity = this.followOpacity(time);
-
-        if (opacity <= 0) return;
-
-        const {radius} = this.drawableSlider.hitObject;
-        const followScale = this.scale(time);
-        const followRadius = radius * followScale;
-        const borderThickness = 4 * (radius / 64) * followScale;
-        const gradient = ctx.createLinearGradient(0, y - followRadius, 0, y + followRadius);
-        const color = this.drawableSlider.color;
-
-        gradient.addColorStop(0, `rgb(${color.red},${color.green},${color.blue})`);
-        gradient.addColorStop(1, `rgb(${color.red / 1.5},${color.green / 1.5},${color.blue / 1.5})`);
-
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha *= opacity;
-
-        ctx.beginPath();
-        ctx.arc(x, y, Math.max(0, followRadius - borderThickness / 2), 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.globalAlpha *= 0.3;
-        ctx.fill();
-
-        ctx.globalAlpha /= 0.3;
-        ctx.lineWidth = borderThickness;
-        ctx.strokeStyle = gradient;
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    private drawBall(
-        ctx: CanvasRenderingContext2D,
-        time: number,
-        x: number,
-        y: number,
-        completion: number,
-    ): void {
-        const opacity = this.opacity(time);
-
-        if (opacity <= 0) return;
-
-        const {radius} = this.drawableSlider.hitObject;
-        const objectScale = radius / 64;
-        const baseBorderThickness = 128 * (2 / 58);
-        const borderThickness = baseBorderThickness * 2.5 * objectScale;
-        const ballRadius = ((128 - baseBorderThickness * 4) / 2) * objectScale;
-        const color = this.drawableSlider.color;
-        const gradient = ctx.createLinearGradient(0, y - ballRadius, 0, y + ballRadius);
-
-        gradient.addColorStop(0, `rgb(${color.red},${color.green},${color.blue})`);
-        gradient.addColorStop(1, `rgb(${color.red / 1.5},${color.green / 1.5},${color.blue / 1.5})`);
-
-        ctx.save();
-        ctx.globalAlpha *= opacity;
-
-        ctx.beginPath();
-        ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(x, y, Math.max(0, ballRadius - borderThickness / 2), 0, Math.PI * 2);
-        ctx.lineWidth = borderThickness;
-        ctx.strokeStyle = "rgb(255,255,255)";
-        ctx.stroke();
-
-        this.drawIcon(ctx, time, x, y, completion, objectScale);
-        ctx.restore();
-    }
-
-    private drawIcon(
-        ctx: CanvasRenderingContext2D,
-        time: number,
-        x: number,
-        y: number,
-        completion: number,
-        objectScale: number,
-    ): void {
-        const iconScale = this.iconScale(time);
-
-        if (iconScale <= 0) return;
-
-        const width = 48 * 0.6 * objectScale * iconScale;
-        const height = 48 * 0.8 * objectScale * iconScale;
-
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(this.rotationAt(completion));
-        ctx.beginPath();
-        ctx.moveTo(-width * 0.18, -height * 0.32);
-        ctx.lineTo(width * 0.18, 0);
-        ctx.lineTo(-width * 0.18, height * 0.32);
-        ctx.lineWidth = 8 * objectScale * iconScale;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = "rgb(255,255,255)";
-        ctx.stroke();
-        ctx.restore();
-    }
-
     private positionAt(time: number): {x: number; y: number; completion: number} {
-        const {duration, startTime, spans, path, stackedStartPosition} = this.drawableSlider.hitObject;
+        const {duration, startTime, spans, path, stackedStartPosition} = this.slider;
         const completion = MathUtils.clamp((time - startTime) / duration, 0, 1);
         const pathProgress = path.progressAt(completion, spans);
         const position = path.positionAt(pathProgress);
@@ -185,7 +80,7 @@ export class DrawableSliderBall {
     }
 
     private rotationAt(completion: number): number {
-        const {path, spans} = this.drawableSlider.hitObject;
+        const {path, spans} = this.slider;
 
         if (path.distance <= 0) return 0;
 
@@ -203,7 +98,7 @@ export class DrawableSliderBall {
     }
 
     private iconScale(time: number): number {
-        const {startTime, endTime} = this.drawableSlider.hitObject;
+        const {startTime, endTime} = this.slider;
         const entranceProgress = MathUtils.clamp(
             (Math.min(time, endTime) - startTime) / DrawableSliderBall.BALL_FADE_IN_DURATION,
             0,
@@ -223,7 +118,7 @@ export class DrawableSliderBall {
     }
 
     private followOpacity(time: number): number {
-        const {startTime, endTime} = this.drawableSlider.hitObject;
+        const {startTime, endTime} = this.slider;
         const fadeIn = DrawableSliderBall.easeOutQuint(MathUtils.clamp(
             (Math.min(time, endTime) - startTime) / DrawableSliderBall.FOLLOW_FADE_IN_DURATION,
             0,
@@ -242,7 +137,7 @@ export class DrawableSliderBall {
     }
 
     private followScaleBeforeEnd(time: number): number {
-        const {startTime} = this.drawableSlider.hitObject;
+        const {startTime} = this.slider;
         const pressProgress = DrawableSliderBall.easeOutQuint(MathUtils.clamp(
             (time - startTime) / DrawableSliderBall.FOLLOW_FADE_IN_DURATION,
             0,

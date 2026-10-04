@@ -1,7 +1,9 @@
+import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {SliderRepeat, SliderTick} from "osu-standard-stable";
 import type {Slider} from "osu-standard-stable";
 import {Color4} from "osu-classes";
+import SliderPathRasterCache from "./SliderPathRasterCache";
 import {DrawableSliderBody} from "./DrawableSliderBody";
 import {DrawableSliderHead} from "./DrawableSliderHead";
 import {DrawableSliderBall} from "./DrawableSliderBall";
@@ -11,41 +13,31 @@ import {DrawableSliderTick} from "./DrawableSliderTick";
 export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     color: Color4;
 
-    sliderBody: DrawableSliderBody;
-    sliderHead: DrawableSliderHead;
-    sliderBall: DrawableSliderBall;
-    sliderTicks: DrawableSliderTick[];
-    sliderRepeats: DrawableSliderRepeat[];
-    //sliderTail: DrawableSliderTail;
+    readonly sliderBody: DrawableSliderBody;
+    readonly sliderHead: DrawableSliderHead;
+    readonly sliderBall: DrawableSliderBall;
+    readonly sliderTicks: DrawableSliderTick[];
+    readonly sliderRepeats: DrawableSliderRepeat[];
 
-    constructor(hitObject: Slider, color: Color4, hidden = false) {
+    constructor(hitObject: Slider, color: Color4, hidden = false, rasterCache = new SliderPathRasterCache(), appearance: StandardAppearance = new DefaultAppearance()) {
         super(hitObject, hidden);
         this.color = color;
 
         const accentColor = new Color4(color.red / 4, color.green / 4, color.blue / 4);
         const borderColor = new Color4(color.red, color.green, color.blue);
 
-        this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor, hidden);
-        this.sliderHead = new DrawableSliderHead(hitObject, color, hidden);
-        this.sliderBall = new DrawableSliderBall(this);
+        this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor, hidden, undefined, rasterCache, appearance);
+        this.sliderHead = new DrawableSliderHead(hitObject, color, hidden, appearance);
+        this.sliderBall = new DrawableSliderBall(hitObject, color, appearance);
         this.sliderTicks = hitObject.nestedHitObjects
             .filter((nested): nested is SliderTick => nested instanceof SliderTick)
-            .map((tick) => {
-                const drawable = new DrawableSliderTick(tick, hidden);
-                drawable.parentHitObject = this;
-                return drawable;
-            });
+            .map(tick => new DrawableSliderTick(tick, color, hidden, appearance));
         this.sliderRepeats = hitObject.nestedHitObjects
             .filter((nested): nested is SliderRepeat => nested instanceof SliderRepeat)
-            .map((repeat) => {
-                const drawable = new DrawableSliderRepeat(repeat, hidden);
-                drawable.parentHitObject = this;
-                return drawable;
-            });
-        //this.sliderTail = new DrawableSliderTail(hitObject, color);
+            .map(repeat => new DrawableSliderRepeat(repeat, hitObject, color, hidden, appearance));
     }
 
-    draw(ctx: CanvasRenderingContext2D, time: number) {
+    draw(ctx: CanvasRenderingContext2D, time: number): void {
         this.sliderBody.draw(ctx, time);
         this.sliderTicks.forEach((tick) => tick.draw(ctx, time));
         this.sliderRepeats.forEach((repeat) => repeat.draw(ctx, time));

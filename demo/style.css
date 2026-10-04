@@ -143,6 +143,21 @@ h1 {
     white-space: nowrap;
 }
 
+.autoplay-toggle {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    color: #d6d0da;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.autoplay-toggle input {
+    margin: 0;
+    accent-color: #ff8fc9;
+}
+
 .beatmap-actions {
     display: flex;
     flex: none;

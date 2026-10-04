@@ -10,7 +10,14 @@ import {
     StandardTimelinePreviewer,
     StandardTimelineRenderer,
 } from "../src";
+import BeatmapPreparation from "../src/internal/BeatmapPreparation";
 import {getStandardComboColors} from "../src/utils/StandardComboColors";
+
+// Follow-point painting is exercised separately with a complete canvas mock.
+vi.mock("../src/internal/appearance/DrawableFollowPoint", () => ({default: class {
+    draw(): void {}
+    dispose(): void {}
+}}));
 
 const BEATMAP_TEXT = readFileSync(new URL("./fixtures/timeline.osu", import.meta.url), "utf8");
 
@@ -95,7 +102,7 @@ describe("BeatmapLoader", () => {
         const createMods = vi.spyOn(ruleset, "createModCombination");
         const convert = vi.spyOn(ruleset, "applyToBeatmapWithMods");
         const source = new BeatmapDecoder().decodeFromString(BEATMAP_TEXT);
-        const loader = new BeatmapLoader(ruleset);
+        const loader = new BeatmapPreparation(ruleset);
         const result = loader.loadBeatmap(source, {mods: ModBitwise.Hidden});
 
         expect(result).toBe(converted);
@@ -103,7 +110,7 @@ describe("BeatmapLoader", () => {
         expect(convert).toHaveBeenCalledWith(expect.objectContaining({base: undefined}), createMods.mock.results[0].value);
         expect(convert.mock.calls[0][0].metadata.title).toBe(source.metadata.title);
         expectTypeOf(result.customResult).toEqualTypeOf<true>();
-        expectTypeOf(result).toEqualTypeOf<Readonly<typeof converted>>();
+        expectTypeOf(result).toEqualTypeOf<typeof converted>();
     });
 
     it.each([
@@ -112,58 +119,58 @@ describe("BeatmapLoader", () => {
     ])("prepares once and shares the exact modded map between views for mods %s", (mods, clockRate) => {
         const decode = vi.spyOn(BeatmapDecoder.prototype, "decodeFromString");
         const apply = vi.spyOn(StandardRuleset.prototype, "applyToBeatmapWithMods");
-        const prepared = new BeatmapLoader(new StandardRuleset()).loadBeatmapText(BEATMAP_TEXT, {mods});
+        const prepared = new BeatmapLoader().loadBeatmapText(BEATMAP_TEXT, {mods});
         const preview = new StandardBeatmapPreviewer(createCanvas().canvas);
         const timeline = new StandardTimelinePreviewer(createCanvas().canvas);
 
         expect(preview.loadPreparedBeatmap(prepared)).toBe(prepared);
         expect(timeline.loadPreparedBeatmap(prepared)).toBe(prepared);
         expect(preview.beatmap).toBe(timeline.beatmap);
-        expect(preview.beatmap?.hitObjects[2]).toBe(prepared.hitObjects[2]);
-        expect(prepared.mods.bitwise).toBe(mods);
-        expect(prepared.difficulty.clockRate).toBe(clockRate);
+        expect(preview.beatmap?.hitObjects[2]).toBe(prepared.beatmap.hitObjects[2]);
+        expect(prepared.beatmap.mods.bitwise).toBe(mods);
+        expect(prepared.beatmap.difficulty.clockRate).toBe(clockRate);
         expect(decode).toHaveBeenCalledTimes(1);
         expect(apply).toHaveBeenCalledTimes(1);
     });
 
     it("can prepare a decoded map without a canvas and reset previously applied mods", () => {
-        const loader = new BeatmapLoader(new StandardRuleset());
+        const loader = new BeatmapLoader();
         const text = BEATMAP_TEXT.replace("128,192,3000", "128,150,3000").replace("L|328:192", "L|328:250");
         const modded = loader.loadBeatmapText(text, {mods: ModBitwise.DoubleTime | ModBitwise.HardRock});
-        const moddedGeometry = geometry(modded);
+        const moddedGeometry = geometry(modded.beatmap);
         const unmodded = loader.loadBeatmap(modded);
         const expected = loader.loadBeatmapText(text);
 
         expect(unmodded).not.toBe(modded);
-        expect(unmodded.mods.bitwise).toBe(0);
-        expect(unmodded.difficulty.clockRate).toBe(1);
-        expect(geometry(unmodded)).toEqual(geometry(expected));
-        expect(geometry(modded)).toEqual(moddedGeometry);
-        expect(modded.mods.bitwise).toBe(ModBitwise.DoubleTime | ModBitwise.HardRock);
-        expect(modded.difficulty.clockRate).toBe(1.5);
+        expect(unmodded.beatmap.mods.bitwise).toBe(0);
+        expect(unmodded.beatmap.difficulty.clockRate).toBe(1);
+        expect(geometry(unmodded.beatmap)).toEqual(geometry(expected.beatmap));
+        expect(geometry(modded.beatmap)).toEqual(moddedGeometry);
+        expect(modded.beatmap.mods.bitwise).toBe(ModBitwise.DoubleTime | ModBitwise.HardRock);
+        expect(modded.beatmap.difficulty.clockRate).toBe(1.5);
     });
 
     it("isolates mod conversion from decoded sources and maps already attached to another view", () => {
         const text = BEATMAP_TEXT.replace("128,192,3000", "128,150,3000").replace("L|328:192", "L|328:250");
         const decoded = new BeatmapDecoder().decodeFromString(text);
-        const loader = new BeatmapLoader(new StandardRuleset());
+        const loader = new BeatmapLoader();
         const prepared = loader.loadBeatmap(decoded);
-        const before = geometry(prepared);
+        const before = geometry(prepared.beatmap);
         const timeline = new StandardTimelinePreviewer(createCanvas().canvas);
         timeline.loadPreparedBeatmap(prepared);
 
         const hardRock = loader.loadBeatmap(prepared, {mods: ModBitwise.HardRock});
         const repeatedHardRock = loader.loadBeatmap(hardRock, {mods: ModBitwise.HardRock});
 
-        expect(hardRock.base).toBe(decoded);
-        expect(repeatedHardRock.base).toBe(decoded);
-        expect(hardRock.hitObjects[2].startPosition.y).toBe(234);
+        expect(hardRock.beatmap.base).toBe(decoded);
+        expect(repeatedHardRock.beatmap.base).toBe(decoded);
+        expect(hardRock.beatmap.hitObjects[2].startPosition.y).toBe(234);
         expect(decoded.hitObjects[2].startPosition.y).toBe(150);
-        expect(geometry(repeatedHardRock)).toEqual(geometry(hardRock));
-        expect(hardRock.difficulty.circleSize).toBe(repeatedHardRock.difficulty.circleSize);
-        expect(geometry(prepared)).toEqual(before);
-        expect(timeline.beatmap).toBe(prepared);
-        expect(geometry(loader.loadBeatmap(decoded))).toEqual(before);
+        expect(geometry(repeatedHardRock.beatmap)).toEqual(geometry(hardRock.beatmap));
+        expect(hardRock.beatmap.difficulty.circleSize).toBe(repeatedHardRock.beatmap.difficulty.circleSize);
+        expect(geometry(prepared.beatmap)).toEqual(before);
+        expect(timeline.beatmap).toBe(prepared.beatmap);
+        expect(geometry(loader.loadBeatmap(decoded).beatmap)).toEqual(before);
     });
 
     it.each([
@@ -174,23 +181,23 @@ describe("BeatmapLoader", () => {
         const modded = preview.loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.Hidden | ModBitwise.DoubleTime});
         const unmodded = preview.loadBeatmap(modded);
 
-        expect(preview.beatmap).toBe(unmodded);
+        expect(preview.beatmap).toBe(unmodded.beatmap);
         expect(unmodded).not.toBe(modded);
-        expect(unmodded.mods.bitwise).toBe(0);
-        expect(unmodded.difficulty.clockRate).toBe(1);
+        expect(unmodded.beatmap.mods.bitwise).toBe(0);
+        expect(unmodded.beatmap.difficulty.clockRate).toBe(1);
 
         const slower = preview.loadBeatmap(modded, {mods: ModBitwise.HalfTime});
-        expect(preview.beatmap).toBe(slower);
-        expect(slower.mods.bitwise).toBe(ModBitwise.HalfTime);
-        expect(slower.difficulty.clockRate).toBe(0.75);
-        expect(modded.difficulty.clockRate).toBe(1.5);
-        expect(modded.mods.has(ModBitwise.Hidden)).toBe(true);
+        expect(preview.beatmap).toBe(slower.beatmap);
+        expect(slower.beatmap.mods.bitwise).toBe(ModBitwise.HalfTime);
+        expect(slower.beatmap.difficulty.clockRate).toBe(0.75);
+        expect(modded.beatmap.difficulty.clockRate).toBe(1.5);
+        expect(modded.beatmap.mods.has(ModBitwise.Hidden)).toBe(true);
     });
 
     it("keeps constructor preview-time defaults and attachment overrides independent for each view", () => {
         const playfieldRender = vi.spyOn(StandardBeatmapRenderer.prototype, "render").mockImplementation(() => {});
         const timelineRender = vi.spyOn(StandardTimelineRenderer.prototype, "render").mockImplementation(() => {});
-        const prepared = new BeatmapLoader(new StandardRuleset()).loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime});
+        const prepared = new BeatmapLoader().loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime});
         const preview = new StandardBeatmapPreviewer(createCanvas().canvas, {useBeatmapPreviewTime: true});
         const timeline = new StandardTimelinePreviewer(createCanvas().canvas);
 
@@ -229,7 +236,7 @@ describe("BeatmapLoader", () => {
     });
 
     it("allows one view to reload and dispose while the other keeps rendering the shared map", () => {
-        const prepared = new BeatmapLoader(new StandardRuleset()).loadBeatmapText(BEATMAP_TEXT);
+        const prepared = new BeatmapLoader().loadBeatmapText(BEATMAP_TEXT);
         const preview = new StandardBeatmapPreviewer(createCanvas().canvas);
         const timelineCanvas = createCanvas();
         const timeline = new StandardTimelinePreviewer(timelineCanvas.canvas);
@@ -240,20 +247,20 @@ describe("BeatmapLoader", () => {
         expect(firstDrawCount).toBeGreaterThan(0);
 
         preview.loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime});
-        expect(preview.beatmap).not.toBe(prepared);
-        expect(timeline.beatmap).toBe(prepared);
+        expect(preview.beatmap).not.toBe(prepared.beatmap);
+        expect(timeline.beatmap).toBe(prepared.beatmap);
         preview.dispose();
         timeline.render(4500);
 
         expect(preview.beatmap).toBeNull();
-        expect(timeline.beatmap).toBe(prepared);
-        expect(prepared.difficulty.clockRate).toBe(1);
+        expect(timeline.beatmap).toBe(prepared.beatmap);
+        expect(prepared.beatmap.difficulty.clockRate).toBe(1);
         expect(timelineCanvas.context.drawImage.mock.calls.length).toBeGreaterThan(firstDrawCount);
     });
 
     it("preserves shared geometry when the views render, resize, seek and change timeline settings", () => {
-        const prepared = new BeatmapLoader(new StandardRuleset()).loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime});
-        const before = geometry(prepared);
+        const prepared = new BeatmapLoader().loadBeatmapText(BEATMAP_TEXT, {mods: ModBitwise.DoubleTime});
+        const before = geometry(prepared.beatmap);
         const preview = new StandardBeatmapPreviewer(createCanvas().canvas);
         const timeline = new StandardTimelinePreviewer(createCanvas().canvas);
         preview.loadPreparedBeatmap(prepared);
@@ -268,15 +275,15 @@ describe("BeatmapLoader", () => {
             preview.render(time);
         }
 
-        expect(geometry(prepared)).toEqual(before);
-        expect(preview.beatmap).toBe(prepared);
-        expect(timeline.beatmap).toBe(prepared);
+        expect(geometry(prepared.beatmap)).toEqual(before);
+        expect(preview.beatmap).toBe(prepared.beatmap);
+        expect(timeline.beatmap).toBe(prepared.beatmap);
     });
 
     it("uses default combo colors without adding them to shared beatmap data", () => {
         const text = BEATMAP_TEXT.replace(/\[Colours\][\s\S]*?(?=\[HitObjects\])/, "");
-        const prepared = new BeatmapLoader(new StandardRuleset()).loadBeatmapText(text);
-        const originalColors = prepared.colors.comboColors;
+        const prepared = new BeatmapLoader().loadBeatmapText(text);
+        const originalColors = prepared.beatmap.colors.comboColors;
         expect(originalColors).toEqual([]);
         const preview = new StandardBeatmapPreviewer(createCanvas().canvas);
         const timeline = new StandardTimelinePreviewer(createCanvas().canvas);
@@ -285,9 +292,9 @@ describe("BeatmapLoader", () => {
         preview.render(1000);
         timeline.render(1000);
 
-        expect(prepared.colors.comboColors).toBe(originalColors);
-        expect(prepared.colors.comboColors).toEqual([]);
-        expect(getStandardComboColors(prepared as StandardBeatmap).map(color => [color.red, color.green, color.blue])).toEqual([
+        expect(prepared.beatmap.colors.comboColors).toBe(originalColors);
+        expect(prepared.beatmap.colors.comboColors).toEqual([]);
+        expect(getStandardComboColors(prepared.beatmap).map(color => [color.red, color.green, color.blue])).toEqual([
             [0, 202, 0], [18, 124, 255], [242, 24, 57], [255, 192, 0],
         ]);
     });

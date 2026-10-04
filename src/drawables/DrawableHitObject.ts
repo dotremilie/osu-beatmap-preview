@@ -41,19 +41,4 @@ export default abstract class DrawableHitObject<THitObject extends HitObject> {
      */
     abstract scale(time: number): number;
 
-    /**
-     * Calculates the x position of the hit object at a given time.
-     *
-     * @param time - The current time in milliseconds.
-     * @returns The x position of the hit object.
-     */
-    abstract x(time: number): number;
-
-    /**
-     * Calculates the y position of the hit object at a given time.
-     *
-     * @param time - The current time in milliseconds.
-     * @returns The y position of the hit object.
-     */
-    abstract y(time: number): number;
 }

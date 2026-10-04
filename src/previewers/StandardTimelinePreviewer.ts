@@ -1,20 +1,20 @@
-import {StandardBeatmap, StandardRuleset} from "osu-standard-stable";
+import {timelineProjection} from "../internal/Projections";
 import StandardTimelineRenderer from "../renderers/StandardTimelineRenderer";
 import TimelineViewport, {TimelineOptions} from "../utils/TimelineViewport";
 import BeatmapPreviewer, {BeatmapPreviewOptions} from "./BeatmapPreviewer";
 
 export interface TimelinePreviewOptions extends Omit<BeatmapPreviewOptions, "offset">, TimelineOptions {}
 
-export default class StandardTimelinePreviewer extends BeatmapPreviewer<StandardBeatmap, StandardTimelineRenderer> {
+export default class StandardTimelinePreviewer extends BeatmapPreviewer<StandardTimelineRenderer> {
     private readonly viewport: TimelineViewport;
 
     constructor(canvas: HTMLCanvasElement, options: TimelinePreviewOptions = {}) {
         const viewport = new TimelineViewport(options);
 
-        super(canvas, new StandardRuleset(), (ctx, beatmap) => new StandardTimelineRenderer(ctx, beatmap, viewport), {
+        super(canvas, (ctx, prepared) => new StandardTimelineRenderer(ctx, prepared, viewport), timelineProjection, {
             ...options,
             height: options.height ?? 40,
-            offset: {x: 0, y: 0},
+
         });
 
         this.viewport = viewport;

@@ -1,22 +1,14 @@
 import Renderer from "./Renderer";
+import {assertPreparedBeatmap, PreparedBeatmap} from "../loaders/PreparedBeatmap";
 
-export default abstract class BeatmapRenderer<TBeatmap, THitObject> extends Renderer {
-    protected beatmap: TBeatmap;
-    protected drawableHitObjects: THitObject[] = [];
-
-    get getBeatmap(): Readonly<TBeatmap> {
-        return this.beatmap;
-    }
-
-    constructor(ctx: CanvasRenderingContext2D, beatmap: TBeatmap) {
+export default abstract class BeatmapRenderer<TDrawable> extends Renderer {
+    protected constructor(
+        ctx: CanvasRenderingContext2D,
+        protected readonly prepared: PreparedBeatmap,
+        protected readonly drawableHitObjects: readonly TDrawable[],
+    ) {
         super(ctx);
-
-        this.beatmap = beatmap;
-        this.initializeDrawableHitObjects();
+        assertPreparedBeatmap(prepared);
     }
-
-    /**
-     * Initializes drawable hit objects for the specific renderer.
-     */
-    protected abstract initializeDrawableHitObjects(): void;
+    public get beatmap(): PreparedBeatmap["beatmap"] { return this.prepared.beatmap; }
 }
