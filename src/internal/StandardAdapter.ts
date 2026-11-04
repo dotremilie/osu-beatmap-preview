@@ -8,9 +8,9 @@ import {DrawableSlider} from "../drawables/standard/DrawableSlider";
 import {DrawableSpinner} from "../drawables/standard/DrawableSpinner";
 import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardHitObject";
 import {DrawableTimelineHitObject} from "../drawables/standard/DrawableTimelineHitObject";
-import SliderPathRasterCache from "../drawables/standard/SliderPathRasterCache";
+import SliderPathBuffer from "../drawables/standard/SliderPathBuffer";
 
-export function createPlayfieldObjects(prepared: PreparedBeatmap, cache: SliderPathRasterCache): DrawableStandardHitObject<StandardHitObject>[] {
+export function createPlayfieldObjects(prepared: PreparedBeatmap, pathBuffer: SliderPathBuffer): DrawableStandardHitObject<StandardHitObject>[] {
     assertPreparedBeatmap(prepared);
     const appearance = new DefaultAppearance();
     const colors = getStandardComboColors(prepared.beatmap);
@@ -18,17 +18,17 @@ export function createPlayfieldObjects(prepared: PreparedBeatmap, cache: SliderP
     return prepared.beatmap.hitObjects.flatMap<DrawableStandardHitObject<StandardHitObject>>(object => {
         const color = colors[object.comboIndexWithOffsets % colors.length];
         if (object instanceof Spinner) return [new DrawableSpinner(object, hidden, appearance)];
-        if (object instanceof Slider) return [new DrawableSlider(object, color, hidden, cache, appearance)];
+        if (object instanceof Slider) return [new DrawableSlider(object, color, hidden, pathBuffer, appearance)];
         if (object instanceof Circle) return [new DrawableCircle(object, color, hidden, appearance)];
         return [];
     });
 }
 
-export function createTimelineEntries(prepared: PreparedBeatmap, cache: SliderPathRasterCache): DrawableTimelineHitObject[] {
+export function createTimelineEntries(prepared: PreparedBeatmap, pathBuffer: SliderPathBuffer): DrawableTimelineHitObject[] {
     assertPreparedBeatmap(prepared);
     const appearance = new DefaultAppearance();
     const colors = getStandardComboColors(prepared.beatmap);
     return prepared.beatmap.hitObjects.map(object => new DrawableTimelineHitObject(
-        object, colors[object.comboIndexWithOffsets % colors.length], prepared.clockRate, cache, appearance,
+        object, colors[object.comboIndexWithOffsets % colors.length], prepared.clockRate, pathBuffer, appearance,
     ));
 }

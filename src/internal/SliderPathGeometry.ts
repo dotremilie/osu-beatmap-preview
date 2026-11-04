@@ -1,17 +1,19 @@
 import type {Vector2} from "osu-classes";
-interface Bounds { x: number; y: number; width: number; height: number; }
-interface SliderGeometry { pathRadius: number; innerPathRadius: number; padding: number; }
-interface VisibleRaster extends Bounds { pixelWidth: number; pixelHeight: number; offsetX: number; offsetY: number; }
+interface PathRectangle { x: number; y: number; width: number; height: number; }
+interface PathStrokeGeometry { pathRadius: number; innerPathRadius: number; padding: number; }
+interface PathDrawRegion extends PathRectangle { pixelWidth: number; pixelHeight: number; offsetX: number; offsetY: number; }
+export interface VertexBounds { minX: number; minY: number; maxX: number; maxY: number; }
 
-export function sliderGeometry(radius: number): SliderGeometry {
+export function sliderGeometry(radius: number): PathStrokeGeometry {
     const diameter = radius * 2;
     const borderThickness = (diameter * 2) * (2 / 58);
     const pathRadius = ((diameter * 2) - borderThickness * 4) / 2;
     return {pathRadius, innerPathRadius: pathRadius - borderThickness * 2, padding: pathRadius / 2 + 2};
 }
 
-export function visibleRaster(ctx: CanvasRenderingContext2D, position: Vector2, points: readonly Vector2[], padding: number): VisibleRaster | undefined {
-    const bounds = pathBounds(position, points, padding);
+export function getPathDrawRegion(ctx: CanvasRenderingContext2D, position: Vector2, points: readonly Vector2[], padding: number,
+                                        localBounds = getVertexBounds(points)): PathDrawRegion | undefined {
+    const bounds = pathBounds(position, localBounds, padding);
     const transform = ctx.getTransform();
     const determinant = transform.a * transform.d - transform.b * transform.c;
     if (!Number.isFinite(determinant) || determinant === 0) return;
@@ -39,27 +41,27 @@ export function visibleRaster(ctx: CanvasRenderingContext2D, position: Vector2, 
     return {...bounds, pixelWidth, pixelHeight, offsetX: position.x - bounds.x, offsetY: position.y - bounds.y};
 }
 
-function pathBounds(
-    position: Vector2,
-    points: readonly Vector2[],
-    padding: number,
-): Bounds {
-    let minX = position.x;
-    let minY = position.y;
-    let maxX = position.x;
-    let maxY = position.y;
+export function getVertexBounds(points: readonly Vector2[]): VertexBounds {
+    let minX = 0;
+    let minY = 0;
+    let maxX = 0;
+    let maxY = 0;
 
     for (const point of points) {
-        minX = Math.min(minX, position.x + point.x);
-        minY = Math.min(minY, position.y + point.y);
-        maxX = Math.max(maxX, position.x + point.x);
-        maxY = Math.max(maxY, position.y + point.y);
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
     }
 
-    const x = Math.floor(minX - padding);
-    const y = Math.floor(minY - padding);
-    const right = Math.ceil(maxX + padding);
-    const bottom = Math.ceil(maxY + padding);
+    return {minX, minY, maxX, maxY};
+}
+
+function pathBounds(position: Vector2, localBounds: VertexBounds, padding: number): PathRectangle {
+    const x = Math.floor(position.x + localBounds.minX - padding);
+    const y = Math.floor(position.y + localBounds.minY - padding);
+    const right = Math.ceil(position.x + localBounds.maxX + padding);
+    const bottom = Math.ceil(position.y + localBounds.maxY + padding);
 
     return {
         x,

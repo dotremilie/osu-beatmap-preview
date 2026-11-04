@@ -2,8 +2,9 @@ import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/D
 import {Slider} from "osu-standard-stable";
 import {Color4, Vector2} from "osu-classes";
 import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
-import SliderPathRasterCache from "./SliderPathRasterCache";
+import SliderPathBuffer from "./SliderPathBuffer";
 import {DrawableSliderPath} from "./DrawableSliderPath";
+import type {PathGeometry} from "./DrawableSliderPath";
 
 export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
     readonly sliderPath: DrawableSliderPath;
@@ -38,11 +39,11 @@ export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
         borderColor: Color4 = new Color4(255, 255, 255),
         hidden = false,
         bodyAlpha = DrawableSliderPath.ARGON_PRO_BODY_ALPHA,
-        rasterCache = new SliderPathRasterCache(),
+        pathBuffer = new SliderPathBuffer(),
         appearance: StandardAppearance = new DefaultAppearance(),
     ) {
         super(hitObject, hidden);
-        this.sliderPath = new DrawableSliderPath(hitObject.path, accentColor, borderColor, bodyAlpha, rasterCache, appearance);
+        this.sliderPath = new DrawableSliderPath(hitObject.path, accentColor, borderColor, bodyAlpha, pathBuffer, appearance);
     }
 
     draw(ctx: CanvasRenderingContext2D, time: number): void {
@@ -55,8 +56,8 @@ export class DrawableSliderBody extends DrawableStandardHitObject<Slider> {
     }
 
     /** Draws the body with optional projected geometry without changing the hitobject's path. */
-    drawAt(ctx: CanvasRenderingContext2D, position: Vector2, radius: number, opacity = 1, points?: readonly Vector2[]): void {
-        this.sliderPath.draw(ctx, position, radius, opacity, points);
+    drawAt(ctx: CanvasRenderingContext2D, position: Vector2, radius: number, opacity = 1, points?: readonly Vector2[], geometry?: PathGeometry): void {
+        this.sliderPath.draw(ctx, position, radius, opacity, points, geometry);
     }
 
     opacity(time: number): number {

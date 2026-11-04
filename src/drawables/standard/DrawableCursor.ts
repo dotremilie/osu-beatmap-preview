@@ -1,9 +1,5 @@
-// Argon appearance adapted from ppy/osu's ArgonCursor and SkinnableCursor.
-// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
-// https://github.com/ppy/osu/blob/master/osu.Game.Rulesets.Osu/Skinning/Argon/ArgonCursor.cs
-// https://github.com/ppy/osu/blob/master/osu.Game.Rulesets.Osu/Skinning/Argon/ArgonCursorTrail.cs
-import type {CursorState} from "../autoplay/StandardReplay";
-import type {TrailSample} from "../autoplay/StandardCursor";
+import type {CursorState} from "../../internal/autoplay/StandardReplay";
+import type {TrailSample} from "../../internal/autoplay/StandardCursor";
 
 // TextureStore uses ScaleAdjust = 2: DisplayWidth = 10 / 2, while Argon
 // additionally sets Scale = 0.8 / 2. Its final stamp diameter is therefore 2.

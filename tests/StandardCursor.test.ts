@@ -5,14 +5,13 @@ import {Slider, Spinner} from "osu-standard-stable";
 import {BeatmapLoader, StandardBeatmapPreviewer, StandardBeatmapRenderer} from "../src";
 import StandardReplay, {CursorState, getAutoplayReplay} from "../src/internal/autoplay/StandardReplay";
 import StandardCursor from "../src/internal/autoplay/StandardCursor";
-import DrawableCursor from "../src/internal/appearance/DrawableCursor";
+import DrawableCursor from "../src/drawables/standard/DrawableCursor";
 import {DrawableCircle} from "../src/drawables/standard/DrawableCircle";
 import {DrawableApproachCircle} from "../src/drawables/standard/DrawableApproachCircle";
 
 // Follow-point painting is exercised separately with a complete canvas mock.
-vi.mock("../src/internal/appearance/DrawableFollowPoint", () => ({default: class {
+vi.mock("../src/drawables/standard/DrawableFollowPoint", () => ({default: class {
     draw(): void {}
-    dispose(): void {}
 }}));
 
 const fixture = readFileSync(new URL("./fixtures/timeline.osu", import.meta.url), "utf8");

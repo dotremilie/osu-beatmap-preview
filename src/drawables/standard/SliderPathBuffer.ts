@@ -1,18 +1,20 @@
 import type {Vector2} from "osu-classes";
 
-type RasterCanvas = HTMLCanvasElement | OffscreenCanvas;
-export type SliderPathRasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+type PathBufferCanvas = HTMLCanvasElement | OffscreenCanvas;
+export type PathBufferContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-export interface RasterRequest {
+export interface PathDrawRequest {
     width: number;
     height: number;
     pixelWidth: number;
     pixelHeight: number;
-    appearance: RasterAppearance;
+    appearance: PathStyle;
     points: readonly Vector2[];
+    /** Stable identity or revision for geometry that is known without scanning points. */
+    pathInvalidationId?: object | number;
 }
 
-export interface RasterAppearance {
+export interface PathStyle {
     x: number;
     y: number;
     pathRadius: number;
@@ -21,42 +23,46 @@ export interface RasterAppearance {
     bodyStyle: string;
 }
 
-interface RasterState extends Omit<RasterRequest, "points"> {
-    coordinates: number[];
+interface BufferedPathState extends Omit<PathDrawRequest, "points"> {
+    coordinates?: number[];
 }
 
-interface RasterEntry {
-    canvas: RasterCanvas;
-    context: SliderPathRasterContext;
-    state?: RasterState;
+interface BufferedPath {
+    canvas: PathBufferCanvas;
+    context: PathBufferContext;
+    state?: BufferedPathState;
 }
 
 // Limit aggregate backing storage, including maps containing many large sliders.
 const MAX_CACHED_PIXELS = 16 * 1024 * 1024;
 const MAX_CACHED_ENTRIES = 256;
 
-export default class SliderPathRasterCache {
-    private readonly entries = new Map<object, RasterEntry>();
+export default class SliderPathBuffer {
+    private readonly entries = new Map<object, BufferedPath>();
     private cachedPixels = 0;
-    private scratch?: RasterEntry;
+    private scratch?: BufferedPath;
 
-    public get(ctx: CanvasRenderingContext2D, owner: object, request: RasterRequest, paint: (ctx: SliderPathRasterContext) => void): RasterCanvas | null {
-        const pixels = request.pixelWidth * request.pixelHeight;
-
-        // A single visible raster may exceed the cache budget in fullscreen.
-        // Keep only one such surface, shared by all sliders owned by this renderer.
-        if (pixels > MAX_CACHED_PIXELS) {
+    /** Composites synchronously, then releases an oversized temporary buffer. */
+    public draw(ctx: CanvasRenderingContext2D, owner: object, request: PathDrawRequest,
+                paint: (ctx: PathBufferContext) => void, composite: (canvas: PathBufferCanvas) => void): void {
+        const oversized = request.pixelWidth * request.pixelHeight > MAX_CACHED_PIXELS;
+        if (oversized) {
             this.evict(owner);
             this.scratch ??= this.createEntry(ctx) ?? undefined;
-            if (!this.scratch) return null;
+            if (!this.scratch) return;
             try {
-                return this.render(this.scratch, request, paint);
-            } catch (error) {
+                composite(this.render(this.scratch, request, paint));
+            } finally {
                 this.releaseEntry(this.scratch);
-                this.scratch = undefined;
-                throw error;
             }
+            return;
         }
+        const canvas = this.get(ctx, owner, request, paint);
+        if (canvas) composite(canvas);
+    }
+
+    private get(ctx: CanvasRenderingContext2D, owner: object, request: PathDrawRequest, paint: (ctx: PathBufferContext) => void): PathBufferCanvas | null {
+        const pixels = request.pixelWidth * request.pixelHeight;
 
         let entry = this.entries.get(owner);
         if (entry) {
@@ -98,7 +104,7 @@ export default class SliderPathRasterCache {
         this.releaseEntry(entry);
     }
 
-    private createEntry(ctx: CanvasRenderingContext2D): RasterEntry | null {
+    private createEntry(ctx: CanvasRenderingContext2D): BufferedPath | null {
         const canvas = typeof OffscreenCanvas !== "undefined"
             ? new OffscreenCanvas(0, 0)
             : ctx.canvas.ownerDocument?.createElement("canvas");
@@ -106,11 +112,11 @@ export default class SliderPathRasterCache {
 
         canvas.width = 0;
         canvas.height = 0;
-        const context = canvas.getContext("2d") as SliderPathRasterContext | null;
+        const context = canvas.getContext("2d") as PathBufferContext | null;
         return context ? {canvas, context} : null;
     }
 
-    private render(entry: RasterEntry, request: RasterRequest, paint: (ctx: SliderPathRasterContext) => void): RasterCanvas {
+    private render(entry: BufferedPath, request: PathDrawRequest, paint: (ctx: PathBufferContext) => void): PathBufferCanvas {
         if (this.matches(entry.state, request)) return entry.canvas;
 
         // Invalidate before painting so a failed draw cannot reuse partial pixels.
@@ -129,29 +135,32 @@ export default class SliderPathRasterCache {
         ctx.globalCompositeOperation = "source-over";
         paint(ctx);
 
-        const coordinates: number[] = [];
-        for (const point of request.points) coordinates.push(point.x, point.y);
+        const coordinates = request.pathInvalidationId === undefined
+            ? request.points.flatMap(point => [point.x, point.y]) : undefined;
         entry.state = {
             width: request.width,
             height: request.height,
             pixelWidth: request.pixelWidth,
             pixelHeight: request.pixelHeight,
             appearance: {...request.appearance},
+            pathInvalidationId: request.pathInvalidationId,
             coordinates,
         };
         return entry.canvas;
     }
 
-    private matches(state: RasterState | undefined, request: RasterRequest): boolean {
+    private matches(state: BufferedPathState | undefined, request: PathDrawRequest): boolean {
         if (!state || state.width !== request.width || state.height !== request.height
             || state.pixelWidth !== request.pixelWidth || state.pixelHeight !== request.pixelHeight
-            || state.coordinates.length !== request.points.length * 2) {
+            || state.pathInvalidationId !== request.pathInvalidationId) {
             return false;
         }
 
-        for (const key of Object.keys(request.appearance) as (keyof RasterAppearance)[]) {
+        for (const key of Object.keys(request.appearance) as (keyof PathStyle)[]) {
             if (state.appearance[key] !== request.appearance[key]) return false;
         }
+        if (request.pathInvalidationId !== undefined) return true;
+        if (state.coordinates?.length !== request.points.length * 2) return false;
         for (let i = 0; i < request.points.length; i++) {
             if (state.coordinates[i * 2] !== request.points[i].x || state.coordinates[i * 2 + 1] !== request.points[i].y) {
                 return false;
@@ -160,7 +169,7 @@ export default class SliderPathRasterCache {
         return true;
     }
 
-    private releaseEntry(entry: RasterEntry): void {
+    private releaseEntry(entry: BufferedPath): void {
         // Clearing references alone leaves backing storage alive until browser GC.
         entry.canvas.width = 0;
         entry.canvas.height = 0;

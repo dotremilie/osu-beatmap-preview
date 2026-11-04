@@ -8,9 +8,8 @@ import {DrawableSliderBody} from "../src/drawables/standard/DrawableSliderBody";
 import {DrawableSliderPath} from "../src/drawables/standard/DrawableSliderPath";
 
 // Follow-point painting is exercised separately with a complete canvas mock.
-vi.mock("../src/internal/appearance/DrawableFollowPoint", () => ({default: class {
+vi.mock("../src/drawables/standard/DrawableFollowPoint", () => ({default: class {
     draw(): void {}
-    dispose(): void {}
 }}));
 
 const BEATMAP_TEXT = readFileSync(new URL("./fixtures/timeline.osu", import.meta.url), "utf8");
@@ -188,6 +187,7 @@ describe("StandardTimelinePreviewer", () => {
                 const y = radius + 1;
                 expect(sliderDraw).toHaveBeenCalledWith(
                     context, expect.any(Vector2), radius, 1, expect.any(Array),
+                    expect.objectContaining({pathInvalidationId: expect.any(Number)}),
                 );
                 expect(context.arc).toHaveBeenCalledWith(expect.any(Number), y, radius, 0, Math.PI * 2);
                 expect(context.arc).toHaveBeenCalledWith(expect.any(Number), y, radius * 0.25, 0, Math.PI * 2);
@@ -220,6 +220,7 @@ describe("StandardTimelinePreviewer", () => {
             expect(circleDraw).toHaveBeenCalled();
             expect(sliderDraw).toHaveBeenCalledWith(
                 context, expect.any(Vector2), 16, 1, expect.any(Array),
+                expect.objectContaining({pathInvalidationId: expect.any(Number)}),
             );
             expect(circleDraw.mock.calls.every(([, , , opacity]) => opacity === 1)).toBe(true);
 

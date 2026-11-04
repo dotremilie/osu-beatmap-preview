@@ -1,6 +1,6 @@
 import type {PreparedBeatmap} from "../../loaders/PreparedBeatmap";
 import StandardReplay, {CursorState, getAutoplayReplay} from "./StandardReplay";
-import DrawableCursor from "../appearance/DrawableCursor";
+import DrawableCursor from "../../drawables/standard/DrawableCursor";
 
 const TRAIL_PLAYBACK_MS = 300;
 const SAMPLE_PLAYBACK_MS = 1000 / 120;

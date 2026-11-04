@@ -1,7 +1,7 @@
 import DefaultAppearance, {StandardAppearance} from "../../internal/appearance/DefaultAppearance";
 import {Color4, SliderPath, Vector2} from "osu-classes";
 import {Slider, SliderRepeat, Spinner, StandardHitObject} from "osu-standard-stable";
-import SliderPathRasterCache from "./SliderPathRasterCache";
+import SliderPathBuffer from "./SliderPathBuffer";
 import PlaybackTiming from "../../internal/PlaybackTiming";
 import MathUtils from "../../utils/MathUtils";
 import TimelineViewport from "../../utils/TimelineViewport";
@@ -9,6 +9,7 @@ import {DrawableCircle} from "./DrawableCircle";
 import {DrawableSliderHead} from "./DrawableSliderHead";
 import {DrawableSliderBody} from "./DrawableSliderBody";
 import {DrawableSliderPath} from "./DrawableSliderPath";
+import type {PathGeometry} from "./DrawableSliderPath";
 
 /** Projects existing drawable visuals onto playback time without modifying their hitobjects. */
 export class DrawableTimelineHitObject {
@@ -25,7 +26,7 @@ export class DrawableTimelineHitObject {
         private readonly hitObject: StandardHitObject,
         color: Color4,
         clockRate: number,
-        rasterCache = new SliderPathRasterCache(),
+        pathBuffer = new SliderPathBuffer(),
         private readonly appearance: StandardAppearance = new DefaultAppearance(),
     ) {
         const timing = new PlaybackTiming(clockRate);
@@ -45,9 +46,9 @@ export class DrawableTimelineHitObject {
 
         const accentColor = new Color4(displayColor.red / 4, displayColor.green / 4, displayColor.blue / 4);
         if (hitObject instanceof Slider) {
-            this.sliderBody = new DrawableSliderBody(hitObject, accentColor, displayColor, false, 1, rasterCache, appearance);
+            this.sliderBody = new DrawableSliderBody(hitObject, accentColor, displayColor, false, 1, pathBuffer, appearance);
         } else if (hitObject instanceof Spinner) {
-            this.spinnerBody = new DrawableSliderPath(new SliderPath(), accentColor, displayColor, 1, rasterCache, appearance);
+            this.spinnerBody = new DrawableSliderPath(new SliderPath(), accentColor, displayColor, 1, pathBuffer, appearance);
         }
     }
 
@@ -71,11 +72,15 @@ export class DrawableTimelineHitObject {
 
         this.position.x = left;
         this.position.y = y;
-        this.bodyPoints[1].x = right - left;
+        const length = right - left;
+        this.bodyPoints[1].x = length;
+        const geometry: PathGeometry = {
+            vertexBounds: {minX: 0, minY: 0, maxX: length, maxY: 0}, pathInvalidationId: length,
+        };
         if (this.sliderBody) {
-            this.sliderBody.drawAt(ctx, this.position, radius, 1, this.bodyPoints);
+            this.sliderBody.drawAt(ctx, this.position, radius, 1, this.bodyPoints, geometry);
         } else {
-            this.spinnerBody?.draw(ctx, this.position, radius, 1, this.bodyPoints);
+            this.spinnerBody?.draw(ctx, this.position, radius, 1, this.bodyPoints, geometry);
         }
 
         for (const markerTime of this.markerTimes) {

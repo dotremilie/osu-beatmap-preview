@@ -5,7 +5,7 @@ import {Slider, StandardHitObject} from "osu-standard-stable";
 import {BeatmapLoader, StandardBeatmapPreviewer, StandardBeatmapRenderer} from "../src";
 import {createFollowPointConnections, evaluateFollowPoint, FollowPoint, FollowPointState} from "../src/internal/followpoints/FollowPoint";
 import FollowPointRenderer from "../src/internal/followpoints/FollowPointRenderer";
-import DrawableFollowPoint from "../src/internal/appearance/DrawableFollowPoint";
+import DrawableFollowPoint from "../src/drawables/standard/DrawableFollowPoint";
 import {DrawableCircle} from "../src/drawables/standard/DrawableCircle";
 import {DrawableApproachCircle} from "../src/drawables/standard/DrawableApproachCircle";
 import StandardCursor from "../src/internal/autoplay/StandardCursor";
@@ -137,7 +137,10 @@ describe("follow-point animation and lifecycle", () => {
         const ctx = canvas().ctx;
         first.draw(ctx, -10000);
         expect(painter).not.toHaveBeenCalled();
-        const capture = () => { const result: FollowPointState[] = []; painter.mockImplementation((_ctx, state) => { result.push({...state}); }); first.draw(ctx, 1000); return result; };
+        const capture = () => { const result: FollowPointState[] = []; painter.mockImplementation(function (this: DrawableFollowPoint, _ctx, time) {
+            const state = evaluate(this.point, time);
+            if (state) result.push(state);
+        }); first.draw(ctx, 1000); return result; };
         const expected = capture();
         expect(expected.length).toBeGreaterThan(0);
         first.draw(ctx, 10000);
@@ -154,7 +157,10 @@ describe("follow-point animation and lifecycle", () => {
     it.each([0, ModBitwise.DoubleTime, ModBitwise.HalfTime])("draws behind objects, with correct playback timing and preview offset, mods %s", mods => {
         const events: string[] = [];
         const states: FollowPointState[] = [];
-        vi.spyOn(DrawableFollowPoint.prototype, "draw").mockImplementation((_ctx, state) => { events.push("follow"); states.push({...state}); });
+        vi.spyOn(DrawableFollowPoint.prototype, "draw").mockImplementation(function (this: DrawableFollowPoint, _ctx, time) {
+            const state = evaluate(this.point, time);
+            if (state) { events.push("follow"); states.push(state); }
+        });
         vi.spyOn(DrawableCircle.prototype, "draw").mockImplementation(() => { events.push("object"); });
         vi.spyOn(DrawableApproachCircle.prototype, "draw").mockImplementation(() => { events.push("approach"); });
         vi.spyOn(StandardCursor.prototype, "draw").mockImplementation(() => { events.push("cursor"); });
@@ -173,16 +179,25 @@ describe("follow-point animation and lifecycle", () => {
         renderer.dispose(); view.dispose();
     });
 
-    it("paints the attributed double-chevron outline with isolated additive blending", () => {
+    it("paints the double-chevron with a translucent pink trailing arrow", () => {
         const paths: string[] = [];
         vi.stubGlobal("Path2D", class { constructor(path: string) { paths.push(path); } });
         const surface = canvas();
         const modes: string[] = [];
-        vi.spyOn(surface.ctx, "fill").mockImplementation(() => { modes.push(surface.ctx.globalCompositeOperation); });
-        const painter = new DrawableFollowPoint();
-        painter.draw(surface.ctx, {x: 100, y: 200, rotationRadians: 1, scale: 0.5, opacity: 0.5});
+        const alphas: number[] = [];
+        vi.spyOn(surface.ctx, "fill").mockImplementation(() => {
+            modes.push(surface.ctx.globalCompositeOperation);
+            alphas.push(surface.ctx.globalAlpha);
+        });
+        const point = {...createFollowPointConnections(prepare())[0].points[0], fadeInTimeMs: 0, fadeOutTimeMs: 800};
+        const drawable = new DrawableFollowPoint(point);
+        drawable.draw(surface.ctx, 200);
         expect(paths[0]).toContain("M285.476 272.971");
         expect(modes).toEqual(["lighter", "lighter"]);
+        expect(alphas[0]).toBeCloseTo(alphas[1] * 0.2);
+        for (const result of vi.mocked(surface.ctx.createLinearGradient).mock.results) {
+            expect(result.value.addColorStop.mock.calls).toEqual([[0, "#FC618F"], [1, "#BB1A41"]]);
+        }
         expect(surface.ctx.translate).toHaveBeenCalledWith(-6, -4);
         expect(surface.ctx.translate).toHaveBeenCalledWith(1.5, 0);
         expect(surface.ctx.translate).toHaveBeenCalledWith(5.5, 0);
@@ -190,7 +205,22 @@ describe("follow-point animation and lifecycle", () => {
         expect(surface.ctx.globalCompositeOperation).toBe("source-over");
         expect(surface.ctx.globalAlpha).toBe(1);
         expect(surface.depth()).toBe(0);
-        painter.dispose();
+    });
+
+    it("draws its own timed animation and remains seekable", () => {
+        vi.stubGlobal("Path2D", class {});
+        const point = createFollowPointConnections(prepare())[0].points[0];
+        const drawable = new DrawableFollowPoint(point);
+        const surface = canvas();
+        drawable.draw(surface.ctx, point.fadeInTimeMs);
+        expect(surface.ctx.fill).not.toHaveBeenCalled();
+        drawable.draw(surface.ctx, point.fadeInTimeMs + 200);
+        expect(surface.ctx.fill).toHaveBeenCalledTimes(2);
+        drawable.draw(surface.ctx, point.fadeOutTimeMs + 400);
+        expect(surface.ctx.fill).toHaveBeenCalledTimes(2);
+        drawable.draw(surface.ctx, point.fadeInTimeMs + 200);
+        expect(surface.ctx.fill).toHaveBeenCalledTimes(4);
+        expect(surface.depth()).toBe(0);
     });
 
     it("restores painter and preview transforms on drawing errors", () => {

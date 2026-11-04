@@ -14,9 +14,8 @@ import BeatmapPreparation from "../src/internal/BeatmapPreparation";
 import {getStandardComboColors} from "../src/utils/StandardComboColors";
 
 // Follow-point painting is exercised separately with a complete canvas mock.
-vi.mock("../src/internal/appearance/DrawableFollowPoint", () => ({default: class {
+vi.mock("../src/drawables/standard/DrawableFollowPoint", () => ({default: class {
     draw(): void {}
-    dispose(): void {}
 }}));
 
 const BEATMAP_TEXT = readFileSync(new URL("./fixtures/timeline.osu", import.meta.url), "utf8");

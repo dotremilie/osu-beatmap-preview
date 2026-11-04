@@ -1,8 +1,8 @@
 import type {Vector2} from "osu-classes";
-import type {SliderPathRasterContext} from "../../drawables/standard/SliderPathRasterCache";
+import type {PathBufferContext} from "../../drawables/standard/SliderPathBuffer";
 class SliderPathPainter {
     public draw(
-        bufferContext: SliderPathRasterContext,
+        bufferContext: PathBufferContext,
         points: readonly Vector2[],
         x: number,
         y: number,
@@ -39,7 +39,7 @@ class SliderPathPainter {
         }
     }
     private tracePath(
-        ctx: SliderPathRasterContext,
+        ctx: PathBufferContext,
         points: readonly Vector2[],
         x: number,
         y: number,

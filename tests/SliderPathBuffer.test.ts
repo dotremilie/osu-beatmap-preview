@@ -1,7 +1,8 @@
 import {Color4, SliderPath, Vector2} from "osu-classes";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {DrawableSliderPath} from "../src/drawables/standard/DrawableSliderPath";
-import SliderPathRasterCache from "../src/drawables/standard/SliderPathRasterCache";
+import SliderPathBuffer from "../src/drawables/standard/SliderPathBuffer";
+import type {PathBufferContext, PathDrawRequest} from "../src/drawables/standard/SliderPathBuffer";
 
 function createCanvas(width = 640, height = 480) {
     function createContext() {
@@ -52,7 +53,7 @@ function createCanvas(width = 640, height = 480) {
 }
 
 function createPath() {
-    const path = new DrawableSliderPath(new SliderPath(), new Color4(40, 60, 80), new Color4(160, 200, 240), undefined, cache);
+    const path = new DrawableSliderPath(new SliderPath(), new Color4(40, 60, 80), new Color4(160, 200, 240), undefined, pathBuffer);
     const points = [new Vector2(0, 0), new Vector2(50, 10), new Vector2(100, 20)];
     return {path, points, position: new Vector2(100, 100)};
 }
@@ -68,11 +69,17 @@ function request(pixelWidth = 2048, pixelHeight = 2048) {
     };
 }
 
-let cache: SliderPathRasterCache;
-beforeEach(() => { cache = new SliderPathRasterCache(); vi.stubGlobal("OffscreenCanvas", undefined); });
+let pathBuffer: SliderPathBuffer;
+function drawBufferedPath(ctx: CanvasRenderingContext2D, owner: object, request: PathDrawRequest,
+                    paint: (ctx: PathBufferContext) => void) {
+    let result: HTMLCanvasElement | OffscreenCanvas | null = null;
+    pathBuffer.draw(ctx, owner, request, paint, canvas => { result = canvas; });
+    return result;
+}
+beforeEach(() => { pathBuffer = new SliderPathBuffer(); vi.stubGlobal("OffscreenCanvas", undefined); });
 afterEach(() => vi.unstubAllGlobals());
 
-describe("slider raster reuse", () => {
+describe("slider path buffering", () => {
     it("composites unchanged bodies repeatedly without retracing or repainting them", () => {
         const {ctx, context, buffers} = createCanvas();
         const {path, points, position} = createPath();
@@ -83,6 +90,25 @@ describe("slider raster reuse", () => {
         expect(buffers[0].getContext().stroke).toHaveBeenCalledTimes(3);
         expect(buffers[0].getContext().lineTo).toHaveBeenCalledTimes(points.length * 3);
         expect(context.drawImage).toHaveBeenCalledTimes(4);
+    });
+
+    it("does not rescan read-only path points after the first draw", () => {
+        const {ctx} = createCanvas();
+        const model = new SliderPath();
+        const points = [new Vector2(0, 0), new Vector2(50, 10), new Vector2(100, 20)];
+        Object.defineProperty(model, "path", {value: points});
+        let reads = 0;
+        for (const point of points) {
+            const {x, y} = point;
+            Object.defineProperty(point, "x", {get: () => { reads++; return x; }});
+            Object.defineProperty(point, "y", {get: () => { reads++; return y; }});
+        }
+        const path = new DrawableSliderPath(model, new Color4(40, 60, 80), new Color4(160, 200, 240), undefined, pathBuffer);
+        path.draw(ctx, new Vector2(100, 100), 20, 1);
+        const firstDrawReads = reads;
+        expect(firstDrawReads).toBeGreaterThan(0);
+        path.draw(ctx, new Vector2(100, 100), 20, 1);
+        expect(reads).toBe(firstDrawReads);
     });
 
     it("reuses an unchanged raster after integer translation without reusing its destination", () => {
@@ -112,6 +138,18 @@ describe("slider raster reuse", () => {
         expect([buffers[0].width, buffers[0].height]).toEqual(dimensions);
         expect(buffers[0].getContext().stroke).toHaveBeenCalledTimes(6);
         expect(buffers[0].getContext().clearRect).toHaveBeenCalledTimes(2);
+    });
+
+    it("uses a projected path invalidation id when its vertices change", () => {
+        const {ctx, buffers} = createCanvas();
+        const {path, points, position} = createPath();
+        const bounds = {minX: 0, minY: 0, maxX: 100, maxY: 20};
+        path.draw(ctx, position, 20, 1, points, {vertexBounds: bounds, pathInvalidationId: 1});
+        path.draw(ctx, position, 20, 1, points, {vertexBounds: bounds, pathInvalidationId: 1});
+        expect(buffers[0].getContext().stroke).toHaveBeenCalledTimes(3);
+        points[1].y = 15;
+        path.draw(ctx, position, 20, 1, points, {vertexBounds: bounds, pathInvalidationId: 2});
+        expect(buffers[0].getContext().stroke).toHaveBeenCalledTimes(6);
     });
 
     it("invalidates when size, opacity, colors or body alpha change and on reverse seeks", () => {
@@ -204,18 +242,18 @@ describe("slider raster memory budget", () => {
         const {ctx, buffers} = createCanvas();
         const owners = Array.from({length: 6}, () => ({}));
         const paint = vi.fn();
-        for (let i = 0; i < 4; i++) cache.get(ctx, owners[i], request(), paint);
+        for (let i = 0; i < 4; i++) drawBufferedPath(ctx, owners[i], request(), paint);
         expect(paint).toHaveBeenCalledTimes(4);
-        cache.get(ctx, owners[0], request(), paint);
+        drawBufferedPath(ctx, owners[0], request(), paint);
         expect(paint).toHaveBeenCalledTimes(4);
-        cache.get(ctx, owners[4], request(), paint);
+        drawBufferedPath(ctx, owners[4], request(), paint);
 
         expect(buffers[0].width).toBe(2048);
         expect(buffers[1].width).toBe(0);
         expect(buffers[1].height).toBe(0);
         expect(buffers.reduce((pixels, buffer) => pixels + buffer.width * buffer.height, 0)).toBe(16 * 1024 * 1024);
 
-        cache.get(ctx, owners[1], request(), paint);
+        drawBufferedPath(ctx, owners[1], request(), paint);
         expect(paint).toHaveBeenCalledTimes(6);
         expect(buffers[2].width).toBe(0);
         expect(buffers.reduce((pixels, buffer) => pixels + buffer.width * buffer.height, 0)).toBe(16 * 1024 * 1024);
@@ -223,7 +261,7 @@ describe("slider raster memory budget", () => {
 
     it("limits the number of tiny surfaces as well as their pixels", () => {
         const {ctx, buffers} = createCanvas();
-        for (let i = 0; i < 300; i++) cache.get(ctx, {}, request(1, 1), vi.fn());
+        for (let i = 0; i < 300; i++) drawBufferedPath(ctx, {}, request(1, 1), vi.fn());
         expect(buffers.filter(buffer => buffer.width > 0)).toHaveLength(256);
         expect(buffers[0].width).toBe(0);
     });
@@ -232,49 +270,66 @@ describe("slider raster memory budget", () => {
         const {ctx, memory} = createCanvas();
         const owner = {};
         const paint = vi.fn();
-        cache.get(ctx, owner, request(2048, 4096), paint);
-        cache.get(ctx, {}, request(2048, 4096), paint);
-        cache.get(ctx, owner, request(4096, 2048), paint);
+        drawBufferedPath(ctx, owner, request(2048, 4096), paint);
+        drawBufferedPath(ctx, {}, request(2048, 4096), paint);
+        drawBufferedPath(ctx, owner, request(4096, 2048), paint);
 
         expect(memory.peakPixels).toBe(16 * 1024 * 1024);
         expect(paint).toHaveBeenCalledTimes(3);
     });
 
-    it("uses one shared scratch canvas for oversized rasters and reuses its unchanged pixels", () => {
+    it("reuses one scratch canvas without retaining its oversized pixels", () => {
         const {ctx, buffers} = createCanvas();
         const paint = vi.fn();
         const large = request(4096, 4097);
-        const first = cache.get(ctx, {}, large, paint);
-        cache.get(ctx, {}, large, paint);
-        expect(paint).toHaveBeenCalledTimes(1);
-        const second = cache.get(ctx, {}, request(5000, 4000), paint);
+        const first = drawBufferedPath(ctx, {}, large, paint);
+        expect(buffers[0].width * buffers[0].height).toBe(0);
+        drawBufferedPath(ctx, {}, large, paint);
+        expect(paint).toHaveBeenCalledTimes(2);
+        const second = drawBufferedPath(ctx, {}, request(5000, 4000), paint);
         expect(second).toBe(first);
         expect(buffers).toHaveLength(1);
-        expect(paint).toHaveBeenCalledTimes(2);
+        expect(paint).toHaveBeenCalledTimes(3);
+        expect(buffers[0].width * buffers[0].height).toBe(0);
 
-        cache.get(ctx, {}, request(), paint);
+        drawBufferedPath(ctx, {}, request(), paint);
         expect(buffers).toHaveLength(2);
-        cache.release();
+        pathBuffer.release();
+        expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
+    });
+
+    it("releases oversized scratch pixels after compositing, including on errors", () => {
+        const {ctx, buffers} = createCanvas();
+        const large = request(5000, 4000);
+        const paint = vi.fn();
+        const composite = vi.fn((buffer: HTMLCanvasElement | OffscreenCanvas) => {
+            expect(buffer.width * buffer.height).toBe(20_000_000);
+        });
+        pathBuffer.draw(ctx, {}, large, paint, composite);
+        expect(composite).toHaveBeenCalledOnce();
+        expect(buffers[0].width * buffers[0].height).toBe(0);
+        expect(() => pathBuffer.draw(ctx, {}, large, paint, () => { throw new Error("composite failed"); }))
+            .toThrow("composite failed");
         expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
     });
 
     it("keeps contexts independent and releases all pixels explicitly", () => {
         const first = createCanvas();
         const second = createCanvas();
-        const secondCache = new SliderPathRasterCache();
+        const secondPathBuffer = new SliderPathBuffer();
         const owner = {};
         const paint = vi.fn();
-        cache.get(first.ctx, owner, request(), paint);
-        secondCache.get(second.ctx, owner, request(), paint);
-        cache.release();
+        drawBufferedPath(first.ctx, owner, request(), paint);
+        secondPathBuffer.draw(second.ctx, owner, request(), paint, () => {});
+        pathBuffer.release();
 
         expect(first.buffers[0].width).toBe(0);
         expect(second.buffers[0].width).toBe(2048);
-        cache.get(first.ctx, owner, request(), paint);
+        drawBufferedPath(first.ctx, owner, request(), paint);
         expect(first.buffers).toHaveLength(2);
         expect(paint).toHaveBeenCalledTimes(3);
-        cache.release();
-        secondCache.release();
+        pathBuffer.release();
+        secondPathBuffer.release();
     });
 });
 
@@ -283,12 +338,12 @@ describe("failed raster ownership", () => {
         const {ctx, buffers} = createCanvas();
         const owner = {};
         const paint = vi.fn(() => { throw new Error("paint failed"); });
-        expect(() => cache.get(ctx, owner, request(width, height), paint)).toThrow("paint failed");
+        expect(() => drawBufferedPath(ctx, owner, request(width, height), paint)).toThrow("paint failed");
         expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
         const goodPaint = vi.fn();
-        cache.get(ctx, owner, request(width, height), goodPaint);
+        drawBufferedPath(ctx, owner, request(width, height), goodPaint);
         expect(goodPaint).toHaveBeenCalledOnce();
-        cache.release();
+        pathBuffer.release();
         expect(buffers.every(buffer => buffer.width === 0 && buffer.height === 0)).toBe(true);
     });
 });

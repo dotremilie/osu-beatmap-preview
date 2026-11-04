@@ -6,7 +6,7 @@ import Renderer from "./Renderer";
 import PlaybackTiming from "../internal/PlaybackTiming";
 import {getTimelineTickStyle} from "./TimelineTickStyle";
 import TimeIntervalIndex from "../utils/TimeIntervalIndex";
-import SliderPathRasterCache from "../drawables/standard/SliderPathRasterCache";
+import SliderPathBuffer from "../drawables/standard/SliderPathBuffer";
 
 export interface TimelineEntry {
     readonly startTime: number;
@@ -26,7 +26,7 @@ export default class TimelineRenderer extends Renderer {
         private readonly entries: readonly TimelineEntry[],
         private readonly timingPoints: readonly TimingPoint[],
         private readonly timing: PlaybackTiming,
-        private readonly rasterCache: SliderPathRasterCache,
+        private readonly pathBuffer: SliderPathBuffer,
         private readonly viewport = new TimelineViewport(),
     ) {
         super(ctx);
@@ -41,12 +41,12 @@ export default class TimelineRenderer extends Renderer {
         validateCanvasSize(width, height);
         this.width = width;
         this.height = height;
-        this.rasterCache.release();
+        this.pathBuffer.release();
     }
 
     public dispose(): void {
         super.dispose();
-        this.rasterCache.release();
+        this.pathBuffer.release();
     }
 
     public get objectRadius(): number {

@@ -1,6 +1,3 @@
-// Adapted from ppy/osu's FollowPointConnection and FollowPointLifetimeEntry.
-// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
-// https://github.com/ppy/osu/blob/master/osu.Game.Rulesets.Osu/Objects/Drawables/Connections/FollowPointConnection.cs
 import {Slider, Spinner, StandardHitObject} from "osu-standard-stable";
 import type {PreparedBeatmap} from "../../loaders/PreparedBeatmap";
 import type {TimeInterval} from "../../utils/TimeIntervalIndex";

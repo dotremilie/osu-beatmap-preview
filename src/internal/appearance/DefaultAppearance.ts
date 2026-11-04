@@ -1,6 +1,6 @@
 import type {Color4} from "osu-classes";
 import type {Vector2} from "osu-classes";
-import type {RasterAppearance, SliderPathRasterContext} from "../../drawables/standard/SliderPathRasterCache";
+import type {PathStyle, PathBufferContext} from "../../drawables/standard/SliderPathBuffer";
 import sliderPathPainter from "./SliderPathPainter";
 import MathUtils from "../../utils/MathUtils";
 import {DrawableSpinnerDisc} from "./SpinnerDisc";
@@ -289,7 +289,7 @@ export default class DefaultAppearance {
         }
     }
 
-    public sliderPath(ctx: SliderPathRasterContext, points: readonly Vector2[], appearance: RasterAppearance): void {
+    public sliderPath(ctx: PathBufferContext, points: readonly Vector2[], appearance: PathStyle): void {
         const {x, y, pathRadius, innerPathRadius, borderStyle, bodyStyle} = appearance;
         sliderPathPainter.draw(ctx, points, x, y, pathRadius, innerPathRadius, borderStyle, bodyStyle);
     }

@@ -6,7 +6,7 @@ import {DrawableSlider} from "../drawables/standard/DrawableSlider";
 import BeatmapRenderer from "./BeatmapRenderer";
 import {DrawableStandardHitObject} from "../drawables/standard/DrawableStandardHitObject";
 import TimeIntervalIndex from "../utils/TimeIntervalIndex";
-import SliderPathRasterCache from "../drawables/standard/SliderPathRasterCache";
+import SliderPathBuffer from "../drawables/standard/SliderPathBuffer";
 import {createPlayfieldObjects} from "../internal/StandardAdapter";
 import type {PreparedBeatmap} from "../loaders/PreparedBeatmap";
 import PlaybackTiming from "../internal/PlaybackTiming";
@@ -23,7 +23,7 @@ export default class StandardBeatmapRenderer extends BeatmapRenderer<DrawableSta
     private readonly intervalIndex: TimeIntervalIndex;
     private readonly visibleIndices: number[] = [];
 
-    private readonly rasterCache: SliderPathRasterCache;
+    private readonly pathBuffer: SliderPathBuffer;
     private readonly timing: PlaybackTiming;
     private readonly followPoints: FollowPointRenderer;
 
@@ -36,11 +36,11 @@ export default class StandardBeatmapRenderer extends BeatmapRenderer<DrawableSta
     public set cursorTrail(enabled: boolean) { this.cursorTrailEnabled = enabled; }
 
     constructor(ctx: CanvasRenderingContext2D, prepared: PreparedBeatmap, options: StandardBeatmapRendererOptions = {}) {
-        const cache = new SliderPathRasterCache();
-        super(ctx, prepared, createPlayfieldObjects(prepared, cache));
+        const pathBuffer = new SliderPathBuffer();
+        super(ctx, prepared, createPlayfieldObjects(prepared, pathBuffer));
         this.autoplayEnabled = options.autoplay ?? false;
         this.cursorTrailEnabled = options.cursorTrail ?? true;
-        this.rasterCache = cache;
+        this.pathBuffer = pathBuffer;
         this.timing = new PlaybackTiming(prepared.clockRate);
         this.followPoints = new FollowPointRenderer(createFollowPointConnections(prepared));
 
@@ -53,12 +53,12 @@ export default class StandardBeatmapRenderer extends BeatmapRenderer<DrawableSta
 
     public resize(width: number, height: number): void {
         validateCanvasSize(width, height);
-        this.rasterCache.release();
+        this.pathBuffer.release();
     }
 
     public dispose(): void {
         super.dispose();
-        this.rasterCache.release();
+        this.pathBuffer.release();
         this.cursor.dispose();
         this.followPoints.dispose();
     }

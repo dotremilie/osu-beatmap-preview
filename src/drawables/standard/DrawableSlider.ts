@@ -3,7 +3,7 @@ import {DrawableStandardHitObject} from "./DrawableStandardHitObject";
 import {SliderRepeat, SliderTick} from "osu-standard-stable";
 import type {Slider} from "osu-standard-stable";
 import {Color4} from "osu-classes";
-import SliderPathRasterCache from "./SliderPathRasterCache";
+import SliderPathBuffer from "./SliderPathBuffer";
 import {DrawableSliderBody} from "./DrawableSliderBody";
 import {DrawableSliderHead} from "./DrawableSliderHead";
 import {DrawableSliderBall} from "./DrawableSliderBall";
@@ -19,14 +19,14 @@ export class DrawableSlider extends DrawableStandardHitObject<Slider> {
     readonly sliderTicks: DrawableSliderTick[];
     readonly sliderRepeats: DrawableSliderRepeat[];
 
-    constructor(hitObject: Slider, color: Color4, hidden = false, rasterCache = new SliderPathRasterCache(), appearance: StandardAppearance = new DefaultAppearance()) {
+    constructor(hitObject: Slider, color: Color4, hidden = false, pathBuffer = new SliderPathBuffer(), appearance: StandardAppearance = new DefaultAppearance()) {
         super(hitObject, hidden);
         this.color = color;
 
         const accentColor = new Color4(color.red / 4, color.green / 4, color.blue / 4);
         const borderColor = new Color4(color.red, color.green, color.blue);
 
-        this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor, hidden, undefined, rasterCache, appearance);
+        this.sliderBody = new DrawableSliderBody(hitObject, accentColor, borderColor, hidden, undefined, pathBuffer, appearance);
         this.sliderHead = new DrawableSliderHead(hitObject, color, hidden, appearance);
         this.sliderBall = new DrawableSliderBall(hitObject, color, appearance);
         this.sliderTicks = hitObject.nestedHitObjects

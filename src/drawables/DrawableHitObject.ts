@@ -1,11 +1,12 @@
 import {HitObject} from "osu-classes";
+import type Drawable from "./Drawable";
 
 /**
  * Abstract class representing a drawable hit object.
  *
  * @template T - The type of the hit object, extending {@link HitObject}.
  */
-export default abstract class DrawableHitObject<THitObject extends HitObject> {
+export default abstract class DrawableHitObject<THitObject extends HitObject> implements Drawable {
     hitObject: THitObject;
 
     /**

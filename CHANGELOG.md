@@ -16,9 +16,11 @@
 
 ### Changed
 
+- Cache prepared slider path vertex bounds and use path invalidation IDs for buffered path reuse; release oversized scratch buffers after compositing. Name the path buffer and geometry helpers after their roles in osu!framework's buffered path drawing.
+- Let each Argon follow point own its timed drawing and place the autoplay cursor drawable with other standard drawables.
 - Separate canvas lifecycle, preparation, projections, animation evaluation, and procedural appearance; construct complete drawable collections without virtual initialization from base constructors.
 - Move timeline composition into an internal ruleset-neutral renderer. Extension contracts remain internal.
-- Own raster caches and appearance independently per renderer; restore nested canvas state on painting errors and preserve resources across identical resizes.
+- Own slider path buffers and appearance independently per renderer; restore nested canvas state on painting errors and preserve resources across identical resizes.
 - Coalesce demo updates into one frame scheduler, skip hidden fullscreen timelines, update stable controls on state changes, and lazy-load showcase maps with stale-request protection and explicit teardown.
 
 ### Fixed
@@ -26,7 +28,7 @@
 - Match Argon's cursor trail with small white additive stamps, spatial interpolation, and its skin-specific fade exponent.
 - Bound ruler density across timing-point changes and search directly for the first visible timing segment.
 - Skip invisible circle and approach-circle drawing work.
-- Release failed raster surfaces and prevent disposed direct renderers from reallocating resources.
+- Release failed path buffers and prevent disposed direct renderers from reallocating resources.
 
 See the README migration guide for examples. Version and release metadata are unchanged.
 
