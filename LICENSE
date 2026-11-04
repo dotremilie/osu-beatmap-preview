@@ -1,7 +1,7 @@
 MIT License
 
 Copyright (c) 2026 dotremilie
-Copyright (c) ppy Pty Ltd <contact@ppy.sh> (adapted autoplay, Argon cursor and follow-point code)
+Copyright (c) ppy Pty Ltd <contact@ppy.sh>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,4 +28,3 @@ Fonticons, Inc. (https://fontawesome.com). The icon is licensed under
 Creative Commons Attribution 4.0 International (CC BY 4.0):
 https://creativecommons.org/licenses/by/4.0/
 Source: https://github.com/FortAwesome/Font-Awesome/blob/5.x/svgs/solid/chevron-right.svg
-The outline is unchanged; this library fits, colours and animates it for Argon follow points.
