@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-11-04
 
 ### Added
 
@@ -29,8 +29,9 @@
 - Bound ruler density across timing-point changes and search directly for the first visible timing segment.
 - Skip invisible circle and approach-circle drawing work.
 - Release failed path buffers and prevent disposed direct renderers from reallocating resources.
+- Refresh locked development dependencies to resolve npm audit findings.
 
-See the README migration guide for examples. Version and release metadata are unchanged.
+See the [README migration guide](README.md#migrating-from-030) for examples.
 
 ## 0.3.0 - 2026-09-05
 

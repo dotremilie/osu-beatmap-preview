@@ -51,7 +51,7 @@ The `cursorTrail` constructor option and getter/setter are available on both cla
 
 The procedural Argon cursor follows osu! autoplay movement, tracks repeated sliders, and circles spinners. Its trail and press animations support arbitrary seeking, preview offsets, and clock-rate mods. Autoplay supplies visual cursor movement; existing successful-hit animations remain unchanged. No scoring, manual input, audio, or replay import is added. Timeline views have no cursor option. See [ROADMAP.md](ROADMAP.md) for the subsequent skinning work.
 
-## Migrating from 0.3.0 (unreleased)
+## Migrating from 0.3.0
 
 Beatmap preparation now returns an opaque `PreparedBeatmap` handle. Construct `BeatmapLoader` without a ruleset argument, attach the handle to views, and read metadata through `prepared.beatmap`:
 
