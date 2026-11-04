@@ -1,5 +1,9 @@
 # osu-beatmap-preview [WIP]
 
+[![CI](https://github.com/dotremilie/osu-beatmap-preview/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/dotremilie/osu-beatmap-preview/actions/workflows/ci.yml)
+[![Publish to npm](https://github.com/dotremilie/osu-beatmap-preview/actions/workflows/publish.yml/badge.svg?event=release)](https://github.com/dotremilie/osu-beatmap-preview/actions/workflows/publish.yml)
+[![npm version](https://img.shields.io/npm/v/osu-beatmap-preview)](https://www.npmjs.com/package/osu-beatmap-preview)
+
 An osu!standard beatmap renderer based on [JerryZhu99/osu-preview](https://github.com/JerryZhu99/osu-preview) that utilizes HTML canvas.
 
 The package uses `osu-parsers`, `osu-classes`, and `osu-standard-stable` for most non-rendering work. The goal is to provide a ready-to-use library that lets developers render osu! beatmap previews in a lightweight way while keeping playback controls, UI, fetching, and application integration in userland.
