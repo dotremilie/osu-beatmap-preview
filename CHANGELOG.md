@@ -31,7 +31,7 @@
 - Release failed path buffers and prevent disposed direct renderers from reallocating resources.
 - Refresh locked development dependencies to resolve npm audit findings.
 
-See the [README migration guide](README.md#migrating-from-030) for examples.
+See the [migration guide](MIGRATION.md#migrating-from-030) for examples.
 
 ## 0.3.0 - 2026-09-05
 
@@ -42,7 +42,7 @@ See the [README migration guide](README.md#migrating-from-030) for examples.
 - Removed the renderer's protected `DEFAULT_COLORS` getter. Supply custom combo colors through `beatmap.colors.comboColors` before loading or rendering the map.
 - Standard previews now scale and center the 640 × 480 logical playfield to fit the canvas, preserving its aspect ratio. Custom offsets are applied in logical playfield coordinates before scaling.
 
-See the [migration guide](README.md#migrating-from-020) for updated imports and options.
+See the [migration guide](MIGRATION.md#migrating-from-020) for updated imports and options.
 
 ### Added
 
